@@ -1,4 +1,6 @@
 import { checkUserIsLoggedInHook } from '#src/hooks/index.js';
+import { cancelRealtimeSessionController } from '#src/modules/realtime/features/cancel-realtime-session/cancel-realtime-session.controller.js';
+import { cancelRealtimeSessionSchema } from '#src/modules/realtime/features/cancel-realtime-session/cancel-realtime-session.schema.js';
 import { createRealtimeSessionController } from '#src/modules/realtime/features/create-realtime-session/create-realtime-session.controller.js';
 import { createRealtimeSessionSchema } from '#src/modules/realtime/features/create-realtime-session/create-realtime-session.schema.js';
 import { endRealtimeSessionController } from '#src/modules/realtime/features/end-realtime-session/end-realtime-session.controller.js';
@@ -27,6 +29,12 @@ export async function realtimeRoutes(fastify) {
     '/sessions/:id/end',
     { schema: endRealtimeSessionSchema },
     endRealtimeSessionController,
+  );
+
+  fastify.post(
+    '/sessions/:id/cancel',
+    { schema: cancelRealtimeSessionSchema },
+    cancelRealtimeSessionController,
   );
 
   fastify.get(
