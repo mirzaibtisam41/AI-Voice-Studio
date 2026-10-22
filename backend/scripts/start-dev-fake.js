@@ -1,5 +1,6 @@
 import '#src/bootstrap/load-env.bootstrap.js';
 import { buildApp } from '#src/bootstrap/build-app.bootstrap.js';
+import { VoiceModel } from '#src/database/models.js';
 import { startJobs } from '#src/bootstrap/start-jobs.bootstrap.js';
 import { seedDatabase } from './seed.js';
 import { createDevFakeAi, createDevMemoryStorage } from './dev-fakes.js';
@@ -25,25 +26,30 @@ const port = Number(process.env.PORT);
 const storage = createDevMemoryStorage({ baseUrl: `http://localhost:${port}` });
 const fastify = buildApp({ storage, ai: createDevFakeAi() });
 
-fastify.get('/dev-storage/*', async (request, reply) => {
-  const file = storage.files.get(request.params['*']);
+fastify.get(
+  '/dev-storage/*',
+  { config: { helmet: { skipRoute: true } } },
+  async (request, reply) => {
+    const file = storage.files.get(request.params['*']);
 
-  if (!file) return reply.code(404).send();
+    if (!file) return reply.code(404).send();
 
-  if (request.query.download) {
-    reply.header(
-      'content-disposition',
-      `attachment; filename="${String(request.query.download).replaceAll('"', '')}"`,
-    );
-  }
+    if (request.query.download) {
+      reply.header(
+        'content-disposition',
+        `attachment; filename="${String(request.query.download).replaceAll('"', '')}"`,
+      );
+    }
 
-  reply.header('cross-origin-resource-policy', 'cross-origin');
+    reply.header('cross-origin-resource-policy', 'cross-origin');
 
-  return reply.type(file.contentType).send(file.body);
-});
+    return reply.type(file.contentType).send(file.body);
+  },
+);
 
 await fastify.ready();
 await seedDatabase();
+await VoiceModel.updateMany({}, { previewStorageKey: null });
 await fastify.listen({ port, host: '0.0.0.0' });
 startJobs({ fastify });
 
