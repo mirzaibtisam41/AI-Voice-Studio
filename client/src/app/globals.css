@@ -132,6 +132,7 @@
 
   html {
     color-scheme: dark;
+    scroll-behavior: smooth;
   }
 
   html[data-theme='light'] {
