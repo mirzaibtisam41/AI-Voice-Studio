@@ -5,7 +5,7 @@ import { HeroSection } from '@/features/marketing/HeroSection';
 import { LanguagesSection } from '@/features/marketing/LanguagesSection';
 import { MarketingFooter } from '@/features/marketing/MarketingFooter';
 import { MarketingNav } from '@/features/marketing/MarketingNav';
-import { PricingSection } from '@/features/marketing/PricingSection';
+import { CreditsSection } from '@/features/marketing/CreditsSection';
 import { ShowcaseSection } from '@/features/marketing/ShowcaseSection';
 import { StepsSection } from '@/features/marketing/StepsSection';
 import { TestimonialsSection } from '@/features/marketing/TestimonialsSection';
@@ -22,7 +22,7 @@ export function LandingPage() {
         <LanguagesSection />
         <StepsSection />
         <UseCasesSection />
-        <PricingSection />
+        <CreditsSection />
         <TestimonialsSection />
         <FaqSection />
         <CtaSection />

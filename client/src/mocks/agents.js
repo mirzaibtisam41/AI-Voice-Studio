@@ -37,7 +37,7 @@ export const AGENTS = [
   {
     id: 'agent-support-concierge',
     name: 'Support Concierge',
-    description: 'Answers billing, account and pricing questions 24/7.',
+    description: 'Answers account, credit and product questions 24/7.',
     voice: 'coral',
     status: 'live',
     sessions: 1284,
@@ -45,14 +45,14 @@ export const AGENTS = [
     avgDuration: 142,
     resolvedRate: 78,
     resolvedTrend: '+4% vs last month',
-    intents: ['Billing', 'Password reset', 'Pricing', 'Refunds'],
+    intents: ['Credits', 'Password reset', 'Voices', 'Exports'],
     greeting: "Hi! I'm Support Concierge. How can I help today?",
     instructions:
-      'You are the support concierge for AI Voice Studio. Answer billing, account and pricing questions in a warm, clear tone. Hand off to a human if the customer asks twice.',
+      'You are the support concierge for AI Voice Studio. Answer account, credit and product questions in a warm, clear tone. Hand off to a human if the customer asks twice.',
     responseStyle: 'Balanced',
     tools: ['order-status', 'support-ticket', 'help-center'],
     knowledge:
-      'Signup includes 10,000 free credits. Refunds are possible within 14 days for unused credits.',
+      'Every account gets 50 free credits at signup. There are no subscriptions or payments.',
   },
   {
     id: 'agent-booking-assistant',
@@ -65,7 +65,7 @@ export const AGENTS = [
     avgDuration: 98,
     resolvedRate: 84,
     resolvedTrend: '+2% vs last month',
-    intents: ['Book demo', 'Reschedule', 'Pricing', 'Team plans'],
+    intents: ['Book demo', 'Reschedule', 'Pricing', 'Credits'],
     greeting: "Hi! I'm Booking Assistant. Want to book a demo or a call?",
     instructions:
       'You help visitors book a demo or onboarding call. Ask for their name, email and preferred time, then confirm the booking.',
@@ -91,6 +91,6 @@ export const AGENTS = [
     responseStyle: 'Detailed',
     tools: ['help-center'],
     knowledge:
-      'Text to speech costs 1 credit per character. Audio can be exported as MP3 or WAV.',
+      'Text to speech costs 1 credit per 100 characters. Audio can be exported as MP3 or WAV.',
   },
 ];

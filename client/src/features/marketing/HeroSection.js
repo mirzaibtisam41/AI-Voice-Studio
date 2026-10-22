@@ -31,7 +31,7 @@ export function HeroSection() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href="/register">
-                Start free — 10,000 credits
+                Start free — 50 credits
                 <ArrowRight />
               </Link>
             </Button>

@@ -2,12 +2,12 @@ const REPLIES = [
   {
     keywords: ['refund', 'money back'],
     reply:
-      'Unused credits can be refunded within 14 days of purchase. I can open a refund request for you — what is the email on the account?',
+      'This is a free demo, so nothing is ever charged. If a run failed, its credits go back to your balance automatically.',
   },
   {
-    keywords: ['bill', 'invoice', 'charge', 'payment', 'card'],
+    keywords: ['bill', 'invoice', 'charge', 'payment', 'card', 'subscription'],
     reply:
-      'You can find every invoice under Billing in your account. If a charge looks wrong, tell me the date and amount and I will check it.',
+      'There are no subscriptions or payments. Every credit you use is listed under Credits in your account.',
   },
   {
     keywords: ['password', 'log in', 'login', 'sign in', 'locked'],
@@ -17,7 +17,7 @@ const REPLIES = [
   {
     keywords: ['price', 'pricing', 'plan', 'cost', 'credit'],
     reply:
-      'Every account starts with 10,000 free credits. Text to speech uses 1 credit per character and real-time conversations use 20 credits per minute.',
+      'Every account starts with 50 free credits. Text to speech uses 1 credit per 100 characters, transcription 1 credit per minute and real-time conversations 3 credits per minute.',
   },
   {
     keywords: ['book', 'meeting', 'demo', 'call', 'schedule'],
@@ -45,7 +45,7 @@ const REPLIES = [
 ];
 
 const FALLBACK_REPLY =
-  'Thanks for the question. I can help with billing, passwords, pricing, refunds and bookings — could you tell me a bit more?';
+  'Thanks for the question. I can help with credits, passwords, voices and bookings — could you tell me a bit more?';
 
 export function findAgentReply(message) {
   const text = message.toLowerCase();

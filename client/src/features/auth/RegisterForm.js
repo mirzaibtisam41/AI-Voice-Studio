@@ -81,7 +81,7 @@ export function RegisterForm() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="10,000 free credits, no card required."
+      subtitle="50 free credits, no card required."
       footer={
         <>
           Already have an account?{' '}

@@ -44,7 +44,7 @@ export function UserMenu() {
         <DropdownMenuItem asChild>
           <Link href="/app/credits">
             <Wallet />
-            Credits & Billing
+            Credits
           </Link>
         </DropdownMenuItem>
         {user.role === 'admin' ? (

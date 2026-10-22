@@ -21,7 +21,7 @@ import {
 export const NAV_LINKS = [
   { label: 'Features', href: '#features' },
   { label: 'Use cases', href: '#use-cases' },
-  { label: 'Pricing', href: '#pricing' },
+  { label: 'Credits', href: '#credits' },
   { label: 'FAQ', href: '#faq' },
 ];
 
@@ -89,8 +89,8 @@ export const FEATURES = [
   },
   {
     icon: CreditCard,
-    title: 'Credits & Billing',
-    description: 'One balance for every tool, with clear per-job pricing.',
+    title: 'Credits',
+    description: 'One balance for every tool, with a clear cost on every job.',
   },
 ];
 
@@ -198,71 +198,6 @@ export const USE_CASES = [
   },
 ];
 
-export const YEARLY_DISCOUNT = 0.2;
-
-export const PLANS = [
-  {
-    name: 'Free',
-    monthlyPrice: 0,
-    credits: '10,000',
-    description: 'Try every tool with no card required.',
-    features: [
-      '10,000 credits once',
-      'Text to speech and transcription',
-      '13 built-in voices',
-      'Community support',
-    ],
-    cta: 'Start free',
-  },
-  {
-    name: 'Creator',
-    monthlyPrice: 12,
-    credits: '150,000',
-    description: 'For solo creators publishing every week.',
-    features: [
-      '150,000 credits per month',
-      'Commercial use license',
-      '1 custom voice clone',
-      'Audio enhancement',
-    ],
-    cta: 'Choose Creator',
-  },
-  {
-    name: 'Pro',
-    monthlyPrice: 39,
-    credits: '500,000',
-    description: 'For teams shipping audio in production.',
-    features: [
-      '500,000 credits per month',
-      '5 custom voice clones',
-      'Real-time playground and agents',
-      'Priority support',
-    ],
-    cta: 'Choose Pro',
-    popular: true,
-  },
-  {
-    name: 'Scale',
-    monthlyPrice: null,
-    credits: 'Custom',
-    description: 'Volume pricing, SSO and dedicated support.',
-    features: [
-      'Custom credit volume',
-      'Unlimited voice clones',
-      'SSO and audit logs',
-      'Dedicated success manager',
-    ],
-    cta: 'Contact sales',
-  },
-];
-
-export const TOP_UP_PACKS = [
-  { size: 'S', credits: '50,000', price: 9 },
-  { size: 'M', credits: '150,000', price: 24, popular: true },
-  { size: 'L', credits: '400,000', price: 59 },
-  { size: 'XL', credits: '1,000,000', price: 129 },
-];
-
 export const TESTIMONIALS = [
   {
     quote:
@@ -280,7 +215,7 @@ export const TESTIMONIALS = [
   },
   {
     quote:
-      'One credit balance for TTS, transcription and agents made budgeting simple. Finance finally stopped asking questions.',
+      'One credit balance for TTS, transcription and agents made it easy to try everything in a single afternoon.',
     name: 'Priya Nair',
     role: 'Product Manager, Kitewave',
     initials: 'PN',
@@ -291,12 +226,12 @@ export const FAQS = [
   {
     question: 'How do credits work?',
     answer:
-      'Every tool draws from one balance. Text to speech costs 1 credit per character, transcription 5 credits per minute and real-time conversations 20 credits per minute. You always see the estimated cost before you generate.',
+      'Every account gets 50 free credits at signup and every tool draws from that one balance. Text to speech costs 1 credit per 100 characters, transcription 1 credit per minute and real-time conversations 3 credits per minute. You always see the cost before you generate.',
   },
   {
-    question: 'Can I use the audio commercially?',
+    question: 'Can I use the audio in my projects?',
     answer:
-      'Yes. Audio created on any paid plan can be used in commercial projects, including ads, courses, apps and podcasts. Free plan audio is for personal and evaluation use.',
+      'AI Voice Studio is a free demo project, so audio you create here is meant for trying things out, not for commercial use.',
   },
   {
     question: 'Which languages are supported?',
@@ -314,9 +249,9 @@ export const FAQS = [
       'Your uploads and generated audio are private to your workspace, encrypted at rest and never used to train models. You can delete any file at any time.',
   },
   {
-    question: 'Can I cancel anytime?',
+    question: 'Do I ever have to pay?',
     answer:
-      'Yes. Cancel from the billing page and your plan stays active until the end of the billing period. Unused top-up credits never expire.',
+      'No. There are no subscriptions, plans or card details. You get 50 credits once when you sign up, and that is all you need to try every tool.',
   },
 ];
 
@@ -327,7 +262,7 @@ export const FOOTER_COLUMNS = [
       { label: 'Text to Speech', href: '#features' },
       { label: 'Speech to Text', href: '#features' },
       { label: 'Voice Agents', href: '#features' },
-      { label: 'Pricing', href: '#pricing' },
+      { label: 'Credits', href: '#credits' },
     ],
   },
   {

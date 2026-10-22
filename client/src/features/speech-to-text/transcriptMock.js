@@ -36,7 +36,7 @@ export const MOCK_SEGMENTS = [
     id: 'seg-5',
     speaker: 'A',
     start: 51,
-    text: 'I like it. Can we prefill the script with something short so the first generation costs under a hundred credits?',
+    text: 'I like it. Can we prefill the script with something short so the first generation costs a single credit?',
   },
   {
     id: 'seg-6',

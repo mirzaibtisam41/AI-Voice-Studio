@@ -70,7 +70,6 @@ export function ProfileSettings() {
           <p className="truncate text-[15px] font-semibold">{user?.name}</p>
           <p className="truncate text-[12.5px] text-ink-3">{user?.email}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Tag>{user?.plan ?? 'Pro'} plan</Tag>
             {user?.joinedAt ? (
               <Tag>Joined {formatDate(user.joinedAt)}</Tag>
             ) : null}
@@ -93,7 +92,7 @@ export function ProfileSettings() {
           id="profile-email"
           label="Email"
           error={errors.email}
-          hint="Used for sign in and billing receipts."
+          hint="Used for sign in and notifications."
         >
           <Input
             id="profile-email"

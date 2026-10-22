@@ -19,7 +19,7 @@ export function CtaSection() {
             Your next audio project starts in seconds.
           </h2>
           <p className="text-[15px] text-muted-foreground">
-            10,000 free credits, no card required.
+            50 free credits, no card required.
           </p>
           <Button asChild size="lg" className="mt-2">
             <Link href="/register">
