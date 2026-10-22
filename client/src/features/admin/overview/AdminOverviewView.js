@@ -1,124 +1,168 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, AudioWaveform, Coins, Users } from 'lucide-react';
+import { AudioWaveform, Coins, Gift, Users } from 'lucide-react';
 import { HorizontalBars, LineChart } from '@/components/charts/Charts';
-import { Button } from '@/components/ui/button';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
 import { StatCard } from '@/components/ui/StatCard';
 import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TableRow } from '@/components/ui/table';
-import { AdminCell, AdminTable } from '@/features/admin/shared/AdminTable';
-import { AdminPageHeader } from '@/features/admin/shared/AdminToolbar';
-import { formatTimeOfDay } from '@/features/admin/shared/adminFormat';
-import { RECENT_FAILED_JOBS } from '@/mocks/adminJobs';
 import {
-  FEATURE_USAGE,
-  PLATFORM_REQUEST_WEEKS,
-  PLATFORM_REQUESTS,
-  PROVIDER_STATUS,
-} from '@/mocks/adminOverview';
+  useGetAnalyticsOverviewQuery,
+  useListAiProvidersQuery,
+} from '@/features/admin/adminApi';
+import {
+  AdminCell,
+  AdminTable,
+  TableStateRows,
+} from '@/features/admin/shared/AdminTable';
+import { AdminPageHeader } from '@/features/admin/shared/AdminToolbar';
+import {
+  capabilityShortLabel,
+  formatCredits,
+} from '@/features/admin/shared/adminFormat';
+import { getErrorMessage } from '@/lib/apiError';
+import { formatDateTime } from '@/lib/format';
 
 const FAILED_COLUMNS = ['Job', 'User', 'Type', 'Error', 'Time'];
 
-function LatencyCard() {
-  return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-[12.5px] text-muted-foreground">Avg. API latency</p>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand">
-          <Activity className="size-4" aria-hidden="true" />
-        </span>
-      </div>
-      <p className="truncate font-serif text-[28px] leading-none font-semibold tracking-tight">
-        146ms
-      </p>
-      <p className="text-[12px] text-success">−8ms vs last week</p>
-    </div>
-  );
+const BAR_COLORS = ['brand', 'blue', 'teal', 'amber', 'success'];
+
+function formatWeekLabel(weekStart) {
+  return new Date(`${weekStart}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 function ProviderStatusPanel() {
-  const rows = [
-    ['Last checked', PROVIDER_STATUS.lastChecked],
-    ['Error rate (24h)', PROVIDER_STATUS.errorRate],
-    ['p95 latency', PROVIDER_STATUS.p95Latency],
-    ['Requests today', PROVIDER_STATUS.requestsToday],
-  ];
+  const { data: providers, isLoading, error } = useListAiProvidersQuery();
 
   return (
     <Panel
-      title="Provider status"
-      description="Health of connected AI providers"
+      title="Providers"
+      description="Connected AI providers and their status"
+      action={
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/admin/providers">Manage</Link>
+        </Button>
+      }
     >
-      <div className="flex items-center justify-between gap-3 rounded-xl border bg-field/60 px-3.5 py-3">
-        <div className="min-w-0">
-          <p className="text-[13.5px] font-semibold">{PROVIDER_STATUS.name}</p>
-          <p className="font-mono text-[11.5px] text-ink-3">api.openai.com</p>
-        </div>
-        <StatusBadge tone="success">{PROVIDER_STATUS.status}</StatusBadge>
-      </div>
-      <dl className="grid grid-cols-2 gap-3">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex flex-col gap-0.5">
-            <dt className="text-[11.5px] text-ink-3">{label}</dt>
-            <dd className="font-mono text-[13px]">{value}</dd>
+      {isLoading ? <Skeleton className="h-16 w-full" /> : null}
+      {error ? <FormAlert>{getErrorMessage(error)}</FormAlert> : null}
+      {providers?.length === 0 ? (
+        <p className="text-[12.5px] text-ink-3">No providers yet.</p>
+      ) : null}
+      {providers?.map((provider) => (
+        <div
+          key={provider.id}
+          className="flex items-center justify-between gap-3 rounded-xl border bg-field/60 px-3.5 py-3"
+        >
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-semibold">{provider.name}</p>
+            <p className="font-mono text-[11.5px] text-ink-3">
+              {provider.code} · {provider.modelsCount}{' '}
+              {provider.modelsCount === 1 ? 'model' : 'models'}
+            </p>
           </div>
-        ))}
-      </dl>
+          <StatusBadge
+            tone={provider.status === 'active' ? 'success' : 'neutral'}
+          >
+            {provider.status === 'active' ? 'Active' : 'Disabled'}
+          </StatusBadge>
+        </div>
+      ))}
     </Panel>
   );
 }
 
+function StatsSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton key={index} className="h-29.5 rounded-2xl" />
+      ))}
+    </div>
+  );
+}
+
 export function AdminOverviewView() {
+  const { data: overview, isLoading, error } = useGetAnalyticsOverviewQuery();
+
   return (
     <div className="flex flex-col gap-4">
-      <AdminPageHeader title="Platform overview">
-        <StatusBadge tone="success">All systems operational</StatusBadge>
-      </AdminPageHeader>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Monthly active users"
-          value="3,284"
-          icon={Users}
-          trend="+9.4% MoM"
-        />
-        <StatCard
-          label="Credits used today"
-          value="18,640"
-          icon={Coins}
-          note="Avg. 3.5 credits per generation"
-        />
-        <StatCard
-          label="Generations today"
-          value="5,271"
-          icon={AudioWaveform}
-          note="Across all features"
-        />
-        <LatencyCard />
-      </div>
+      <AdminPageHeader title="Platform overview" />
+      {error ? <FormAlert>{getErrorMessage(error)}</FormAlert> : null}
+      {isLoading ? <StatsSkeleton /> : null}
+      {overview ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Total users"
+              value={formatCredits(overview.users.total)}
+              icon={Users}
+              note={`${formatCredits(overview.users.activeLast30Days)} active in 30 days · ${formatCredits(overview.users.newThisMonth)} new this month`}
+            />
+            <StatCard
+              label="Generations today"
+              value={formatCredits(overview.generations.today)}
+              icon={AudioWaveform}
+              note={`${formatCredits(overview.generations.last7Days)} in the last 7 days`}
+            />
+            <StatCard
+              label="Credits used today"
+              value={formatCredits(overview.credits.usedToday)}
+              icon={Coins}
+              note={`${formatCredits(overview.credits.usedLast30Days)} in the last 30 days`}
+            />
+            <StatCard
+              label="Credits granted"
+              value={formatCredits(overview.credits.grantedLast30Days)}
+              icon={Gift}
+              note="Signup bonuses and admin credits, 30 days"
+            />
+          </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Panel
-          title="Platform requests (weekly)"
-          description="API requests across all features, last 8 weeks"
-        >
-          <LineChart
-            labels={PLATFORM_REQUEST_WEEKS}
-            series={[
-              { name: 'Requests', color: 'blue', values: PLATFORM_REQUESTS },
-            ]}
-            area
-            label="Weekly platform requests"
-          />
-        </Panel>
-        <Panel
-          title="Usage by feature"
-          description="Share of generations this month"
-        >
-          <HorizontalBars items={FEATURE_USAGE} unit="%" />
-        </Panel>
-      </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+            <Panel
+              title="Platform requests (weekly)"
+              description="Generations across all features, last 8 weeks"
+            >
+              <LineChart
+                labels={overview.weeklyRequests.map((week) =>
+                  formatWeekLabel(week.weekStart),
+                )}
+                series={[
+                  {
+                    name: 'Requests',
+                    color: 'blue',
+                    values: overview.weeklyRequests.map((week) => week.count),
+                  },
+                ]}
+                area
+                label="Weekly platform requests"
+              />
+            </Panel>
+            <Panel
+              title="Usage by feature"
+              description="Credits used per feature, last 30 days"
+            >
+              <HorizontalBars
+                items={overview.usageByCapability.map((item, index) => ({
+                  label: capabilityShortLabel(item.capability),
+                  value: item.credits,
+                  color: BAR_COLORS[index % BAR_COLORS.length],
+                }))}
+                unit=""
+              />
+            </Panel>
+          </div>
+        </>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section className="flex min-w-0 flex-col gap-3">
@@ -129,24 +173,30 @@ export function AdminOverviewView() {
             </Button>
           </div>
           <AdminTable columns={FAILED_COLUMNS} tableClassName="min-w-[560px]">
-            {RECENT_FAILED_JOBS.map((job) => (
+            <TableStateRows
+              colSpan={FAILED_COLUMNS.length}
+              isLoading={isLoading}
+              isEmpty={overview?.failedJobs.length === 0}
+              empty="No failed jobs. Nice."
+            />
+            {overview?.failedJobs.map((job) => (
               <TableRow key={job.id}>
                 <AdminCell className="font-mono text-[12px]">
-                  {job.id}
+                  {job.id.slice(-8)}
                 </AdminCell>
                 <AdminCell className="whitespace-nowrap">
-                  {job.userName}
+                  {job.userEmail ?? '—'}
                 </AdminCell>
                 <AdminCell>
-                  <Tag>{job.type}</Tag>
+                  <Tag>{capabilityShortLabel(job.capability)}</Tag>
                 </AdminCell>
                 <AdminCell>
                   <StatusBadge tone="danger" dot={false}>
-                    {job.errorCategory}
+                    {job.errorCategory ?? 'unknown'}
                   </StatusBadge>
                 </AdminCell>
                 <AdminCell className="font-mono text-[12px] whitespace-nowrap text-ink-3">
-                  {formatTimeOfDay(job.startedAt)}
+                  {formatDateTime(job.createdAt)}
                 </AdminCell>
               </TableRow>
             ))}

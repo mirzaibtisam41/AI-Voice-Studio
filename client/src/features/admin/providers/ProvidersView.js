@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, RotateCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Spinner } from '@/components/ui/Spinner';
-import { Tag } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,120 +17,134 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  useCreateAiProviderMutation,
+  useDeleteAiProviderMutation,
+  useListAiProvidersQuery,
+  useUpdateAiProviderMutation,
+  useUpdateAiProviderStatusMutation,
+} from '@/features/admin/adminApi';
 import { ConfirmDialog } from '@/features/admin/shared/ConfirmDialog';
-import { AdminCell, AdminTable } from '@/features/admin/shared/AdminTable';
+import {
+  AdminCell,
+  AdminTable,
+  TableStateRows,
+} from '@/features/admin/shared/AdminTable';
 import { AdminPageHeader } from '@/features/admin/shared/AdminToolbar';
 import { NoticeAlert } from '@/features/admin/shared/NoticeAlert';
-import { simulateWork } from '@/features/admin/shared/adminFormat';
-import { ADMIN_MODELS, ADMIN_PROVIDERS } from '@/mocks/adminModels';
+import { getErrorMessage, readFieldErrors } from '@/lib/apiError';
 
 const COLUMNS = [
   'Provider',
   'Code',
-  'Capabilities',
   'Models',
   'Status',
-  'API key',
+  { key: 'actions', label: 'Actions', srOnly: true },
 ];
 
-const EMPTY_FORM = { name: '', code: '', baseUrl: '', apiKey: '' };
+const CODE_PATTERN = /^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$/;
 
-function randomKeySuffix() {
-  return Math.random().toString(16).slice(2, 6);
-}
+function ProviderForm({ provider, onDone, onCancel }) {
+  const editing = Boolean(provider);
+  const [name, setName] = useState(provider?.name ?? '');
+  const [code, setCode] = useState(provider?.code ?? '');
+  const [description, setDescription] = useState(provider?.description ?? '');
+  const [createProvider, createState] = useCreateAiProviderMutation();
+  const [updateProvider, updateState] = useUpdateAiProviderMutation();
+  const { isLoading, error } = editing ? updateState : createState;
+  const fieldErrors = readFieldErrors(error);
+  const trimmedCode = code.trim().toLowerCase();
+  const codeInvalid = Boolean(trimmedCode) && !CODE_PATTERN.test(trimmedCode);
+  const canSubmit = name.trim() && (editing || (trimmedCode && !codeInvalid));
 
-function AddProviderForm({ takenCodes, onCreate, onCancel }) {
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const code = form.code.trim().toLowerCase();
-  const codeTaken = takenCodes.includes(code);
-  const canSubmit =
-    form.name.trim() &&
-    code &&
-    !codeTaken &&
-    form.baseUrl.trim() &&
-    form.apiKey;
-
-  function update(field) {
-    return (event) =>
-      setForm((current) => ({ ...current, [field]: event.target.value }));
-  }
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    if (!canSubmit) return;
-    setSaving(true);
-    simulateWork(() => {
-      setSaving(false);
-      onCreate({
-        id: code,
-        name: form.name.trim(),
-        code,
-        baseUrl: form.baseUrl.trim(),
-        capabilities: [],
-        enabled: false,
-        keyLast4: form.apiKey.slice(-4),
-      });
-    }, 1100);
+    if (!canSubmit || isLoading) return;
+    const body = {
+      name: name.trim(),
+      description: description.trim() || null,
+    };
+
+    try {
+      if (editing) {
+        await updateProvider({ id: provider.id, ...body }).unwrap();
+        toast.success(`${body.name} updated`);
+      } else {
+        await createProvider({
+          ...body,
+          code: trimmedCode,
+          status: 'disabled',
+        }).unwrap();
+        toast.success(`${body.name} added (disabled)`);
+      }
+      onDone();
+    } catch {
+      return;
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <NoticeAlert tone="warning">
-        Only OpenAI is wired up in this build. New providers are saved but stay
-        disabled until an adapter exists.
-      </NoticeAlert>
+      {editing ? null : (
+        <NoticeAlert tone="warning">
+          Only OpenAI is wired up in this build. New providers are saved but
+          stay disabled until an adapter exists.
+        </NoticeAlert>
+      )}
+      <FormAlert>{error ? getErrorMessage(error) : null}</FormAlert>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="provider-name" label="Name">
+        <Field id="provider-name" label="Name" error={fieldErrors.name}>
           <Input
             id="provider-name"
-            value={form.name}
-            onChange={update('name')}
+            value={name}
+            maxLength={100}
+            onChange={(event) => setName(event.target.value)}
             placeholder="ElevenLabs"
           />
         </Field>
         <Field
           id="provider-code"
           label="Code"
-          error={codeTaken ? 'Code already in use.' : undefined}
+          hint={editing ? 'The code cannot be changed.' : undefined}
+          error={
+            codeInvalid
+              ? 'Letters, numbers and single dashes only.'
+              : fieldErrors.code
+          }
         >
           <Input
             id="provider-code"
-            value={form.code}
-            onChange={update('code')}
+            value={code}
+            maxLength={50}
+            disabled={editing}
+            onChange={(event) => setCode(event.target.value)}
             placeholder="elevenlabs"
             className="font-mono"
           />
         </Field>
       </div>
-      <Field id="provider-url" label="Base URL">
-        <Input
-          id="provider-url"
-          type="url"
-          value={form.baseUrl}
-          onChange={update('baseUrl')}
-          placeholder="https://api.example.com/v1"
-          className="font-mono"
-        />
-      </Field>
-      <Field id="provider-key" label="API key" hint="Stored encrypted.">
-        <Input
-          id="provider-key"
-          type="password"
-          autoComplete="off"
-          value={form.apiKey}
-          onChange={update('apiKey')}
-          placeholder="sk-..."
-          className="font-mono"
+      <Field
+        id="provider-description"
+        label="Description"
+        error={fieldErrors.description}
+      >
+        <Textarea
+          id="provider-description"
+          rows={2}
+          maxLength={500}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="What this provider is used for"
         />
       </Field>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!canSubmit || saving}>
-          {saving ? <Spinner /> : null}
-          Add provider
+        <Button type="submit" disabled={!canSubmit || isLoading}>
+          {isLoading ? <Spinner /> : null}
+          {editing ? 'Save provider' : 'Add provider'}
         </Button>
       </DialogFooter>
     </form>
@@ -138,108 +152,110 @@ function AddProviderForm({ takenCodes, onCreate, onCancel }) {
 }
 
 export function ProvidersView() {
-  const [providers, setProviders] = useState(ADMIN_PROVIDERS);
-  const [adding, setAdding] = useState(false);
-  const [rotatingId, setRotatingId] = useState(null);
-  const [confirmRotateId, setConfirmRotateId] = useState(null);
-  const confirmProvider = providers.find(
-    (provider) => provider.id === confirmRotateId,
-  );
+  const { data: providers, isLoading, error } = useListAiProvidersQuery();
+  const [updateStatus] = useUpdateAiProviderStatusMutation();
+  const [deleteProvider] = useDeleteAiProviderMutation();
+  const [dialog, setDialog] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [pendingId, setPendingId] = useState(null);
 
-  function updateProvider(id, changes) {
-    setProviders((current) =>
-      current.map((provider) =>
-        provider.id === id ? { ...provider, ...changes } : provider,
-      ),
-    );
+  async function handleToggle(provider, enabled) {
+    setPendingId(provider.id);
+    try {
+      await updateStatus({
+        id: provider.id,
+        status: enabled ? 'active' : 'disabled',
+      }).unwrap();
+      toast.success(`${provider.name} ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (statusError) {
+      toast.error(getErrorMessage(statusError));
+    } finally {
+      setPendingId(null);
+    }
   }
 
-  function handleToggle(provider, enabled) {
-    updateProvider(provider.id, { enabled });
-    toast.success(`${provider.name} ${enabled ? 'enabled' : 'disabled'}`);
-  }
+  async function handleDelete() {
+    const provider = deleting;
 
-  function handleRotate() {
-    const provider = confirmProvider;
-    setConfirmRotateId(null);
-    setRotatingId(provider.id);
-    simulateWork(() => {
-      updateProvider(provider.id, { keyLast4: randomKeySuffix() });
-      setRotatingId(null);
-      toast.success(`${provider.name} API key rotated`);
-    }, 1400);
-  }
-
-  function handleCreate(provider) {
-    setProviders((current) => [...current, provider]);
-    setAdding(false);
-    toast.success(`${provider.name} added (disabled)`);
+    setDeleting(null);
+    try {
+      await deleteProvider(provider.id).unwrap();
+      toast.success(`${provider.name} deleted`);
+    } catch (deleteError) {
+      toast.error(getErrorMessage(deleteError));
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
       <AdminPageHeader
         title="AI providers"
-        count={`${providers.length} connected`}
+        count={providers ? `${providers.length} connected` : null}
       >
-        <Button size="sm" onClick={() => setAdding(true)}>
+        <Button size="sm" onClick={() => setDialog({ provider: null })}>
           <Plus />
           Add provider
         </Button>
       </AdminPageHeader>
 
-      <AdminTable columns={COLUMNS} tableClassName="min-w-[820px]">
-        {providers.map((provider) => {
-          const modelCount = ADMIN_MODELS.filter(
-            (model) => model.provider === provider.name,
-          ).length;
+      <AdminTable columns={COLUMNS} tableClassName="min-w-[720px]">
+        <TableStateRows
+          colSpan={COLUMNS.length}
+          isLoading={isLoading}
+          error={error}
+          isEmpty={providers?.length === 0}
+          empty="No providers yet."
+        />
+        {providers?.map((provider) => {
+          const active = provider.status === 'active';
 
           return (
             <TableRow key={provider.id}>
               <AdminCell>
                 <p className="text-[13px] font-semibold">{provider.name}</p>
-                <p className="font-mono text-[11.5px] text-ink-3">
-                  {provider.baseUrl}
+                <p className="max-w-80 truncate text-[11.5px] text-ink-3">
+                  {provider.description || 'No description'}
                 </p>
               </AdminCell>
               <AdminCell className="font-mono text-[12.5px]">
                 {provider.code}
               </AdminCell>
+              <AdminCell className="font-mono text-[12.5px]">
+                {provider.modelsCount}
+              </AdminCell>
               <AdminCell>
-                <div className="flex flex-wrap gap-1.5">
-                  {provider.capabilities.length ? (
-                    provider.capabilities.map((capability) => (
-                      <Tag key={capability}>{capability}</Tag>
-                    ))
-                  ) : (
-                    <span className="text-[12px] text-ink-3">None yet</span>
-                  )}
+                <div className="flex items-center gap-2.5">
+                  <Switch
+                    checked={active}
+                    disabled={pendingId === provider.id}
+                    onCheckedChange={(enabled) =>
+                      handleToggle(provider, enabled)
+                    }
+                    aria-label={`${provider.name} enabled`}
+                  />
+                  <span className="text-[12px] whitespace-nowrap text-ink-3">
+                    {active ? 'Active' : 'Disabled'}
+                  </span>
                 </div>
               </AdminCell>
-              <AdminCell className="font-mono text-[12.5px]">
-                {modelCount}
-              </AdminCell>
               <AdminCell>
-                <Switch
-                  checked={provider.enabled}
-                  onCheckedChange={(enabled) => handleToggle(provider, enabled)}
-                  aria-label={`${provider.name} enabled`}
-                />
-              </AdminCell>
-              <AdminCell>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[12.5px] whitespace-nowrap">
-                    sk-•••• {provider.keyLast4}
-                  </span>
+                <div className="flex items-center justify-end gap-1.5">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    disabled={rotatingId === provider.id}
-                    onClick={() => setConfirmRotateId(provider.id)}
-                    aria-label={`Rotate ${provider.name} API key`}
+                    onClick={() => setDialog({ provider })}
+                    aria-label={`Edit ${provider.name}`}
                   >
-                    {rotatingId === provider.id ? <Spinner /> : <RotateCw />}
-                    Rotate
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleting(provider)}
+                    aria-label={`Delete ${provider.name}`}
+                    className="text-danger hover:bg-danger/10 hover:text-danger"
+                  >
+                    Delete
                   </Button>
                 </div>
               </AdminCell>
@@ -248,32 +264,42 @@ export function ProvidersView() {
         })}
       </AdminTable>
 
-      <Dialog open={adding} onOpenChange={setAdding}>
+      <Dialog
+        open={Boolean(dialog)}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
         <DialogContent className="max-w-lg">
           <div className="flex flex-col gap-1.5 pr-6">
-            <DialogTitle>Add provider</DialogTitle>
+            <DialogTitle>
+              {dialog?.provider ? 'Edit provider' : 'Add provider'}
+            </DialogTitle>
             <DialogDescription>
-              Connect another AI provider for speech and agent models.
+              {dialog?.provider
+                ? `Update the name and description of ${dialog.provider.name}.`
+                : 'Register another AI provider for speech and agent models.'}
             </DialogDescription>
           </div>
-          {adding ? (
-            <AddProviderForm
-              takenCodes={providers.map((provider) => provider.code)}
-              onCreate={handleCreate}
-              onCancel={() => setAdding(false)}
+          {dialog ? (
+            <ProviderForm
+              key={dialog.provider?.id ?? 'new'}
+              provider={dialog.provider}
+              onDone={() => setDialog(null)}
+              onCancel={() => setDialog(null)}
             />
           ) : null}
         </DialogContent>
       </Dialog>
       <ConfirmDialog
-        open={Boolean(confirmProvider)}
+        open={Boolean(deleting)}
         onOpenChange={(open) => {
-          if (!open) setConfirmRotateId(null);
+          if (!open) setDeleting(null);
         }}
-        title="Rotate API key?"
-        description="The current key stops working immediately. In-flight jobs may fail and will be refunded automatically."
-        confirmLabel="Rotate key"
-        onConfirm={handleRotate}
+        title={`Delete ${deleting?.name ?? 'provider'}?`}
+        description="Providers that still have models cannot be deleted. This cannot be undone."
+        confirmLabel="Delete provider"
+        onConfirm={handleDelete}
       />
     </div>
   );

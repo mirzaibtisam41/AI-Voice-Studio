@@ -78,3 +78,18 @@ export function FilterSelect({ label, value, onChange, options, className }) {
     </Select>
   );
 }
+
+export function DateFilter({ id, label, value, onChange }) {
+  return (
+    <label htmlFor={id} className="flex items-center gap-1.5">
+      <span className="text-[12px] text-ink-3">{label}</span>
+      <Input
+        id={id}
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-38 font-mono text-[12.5px]"
+      />
+    </label>
+  );
+}

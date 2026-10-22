@@ -1,49 +1,85 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
 import { Spinner } from '@/components/ui/Spinner';
 import { ToggleRow } from '@/components/ui/ToggleRow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  useGetPlatformSettingsQuery,
+  useUpdatePlatformSettingsMutation,
+} from '@/features/admin/adminApi';
 import { AdminPageHeader } from '@/features/admin/shared/AdminToolbar';
 import { NoticeAlert } from '@/features/admin/shared/NoticeAlert';
-import { simulateWork } from '@/features/admin/shared/adminFormat';
-import {
-  ADMIN_MODELS,
-  CAPABILITY_LABELS,
-  CAPABILITY_TAGS,
-} from '@/mocks/adminModels';
-import { PLATFORM_SETTINGS } from '@/mocks/adminSettings';
+import { getErrorMessage, readFieldErrors } from '@/lib/apiError';
 
-const NUMBER_FIELDS = [
-  'signupCredits',
-  'maxTtsCharacters',
-  'maxUploadMb',
-  'realtimeSessionMinutes',
-];
+const NUMBER_LIMITS = {
+  signupCredits: { min: 0, max: 100000 },
+  ttsMaxCharacters: { min: 100, max: 20000 },
+  uploadMaxMegabytes: { min: 1, max: 25 },
+  realtimeMaxMinutes: { min: 1, max: 60 },
+  agentChatMaxMessages: { min: 1, max: 100 },
+};
 
-function NumberField({ id, label, hint, value, onChange, suffix }) {
+const BOOLEAN_FIELDS = ['requireEmailVerification', 'maintenanceMode'];
+const MAINTENANCE_MESSAGE_MAX = 300;
+
+function toDraft(settings) {
+  return {
+    ...Object.fromEntries(
+      Object.keys(NUMBER_LIMITS).map((key) => [key, String(settings[key])]),
+    ),
+    ...Object.fromEntries(BOOLEAN_FIELDS.map((key) => [key, settings[key]])),
+    maintenanceMessage: settings.maintenanceMessage ?? '',
+  };
+}
+
+function numberError(key, value) {
+  const { min, max } = NUMBER_LIMITS[key];
+  const numeric = Number(value);
+
+  if (value === '' || !Number.isInteger(numeric))
+    return 'Enter a whole number.';
+  if (numeric < min || numeric > max) return `Between ${min} and ${max}.`;
+
+  return null;
+}
+
+function buildChanges(saved, draft) {
+  const changes = {};
+
+  for (const key of Object.keys(NUMBER_LIMITS)) {
+    if (draft[key] !== saved[key]) changes[key] = Number(draft[key]);
+  }
+  for (const key of BOOLEAN_FIELDS) {
+    if (draft[key] !== saved[key]) changes[key] = draft[key];
+  }
+  if (draft.maintenanceMessage !== saved.maintenanceMessage) {
+    changes.maintenanceMessage = draft.maintenanceMessage.trim();
+  }
+
+  return changes;
+}
+
+function NumberField({ id, label, hint, value, onChange, suffix, error }) {
   return (
-    <Field id={id} label={label} hint={hint}>
+    <Field id={id} label={label} hint={hint} error={error}>
       <div className="relative">
         <Input
           id={id}
           type="number"
-          min="0"
+          step="1"
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="pr-16 font-mono"
+          aria-invalid={Boolean(error) || undefined}
         />
         {suffix ? (
           <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[12px] text-ink-3">
@@ -55,126 +91,74 @@ function NumberField({ id, label, hint, value, onChange, suffix }) {
   );
 }
 
-function toDraft(settings) {
-  return {
-    ...settings,
-    ...Object.fromEntries(
-      NUMBER_FIELDS.map((key) => [key, String(settings[key])]),
-    ),
-  };
-}
-
-export function PlatformSettingsView() {
-  const [saved, setSaved] = useState(() => toDraft(PLATFORM_SETTINGS));
-  const [draft, setDraft] = useState(() => toDraft(PLATFORM_SETTINGS));
-  const [saving, setSaving] = useState(false);
-  const dirty = JSON.stringify(saved) !== JSON.stringify(draft);
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.supportEmail);
+function SettingsForm({ settings }) {
+  const saved = toDraft(settings);
+  const [draft, setDraft] = useState(saved);
+  const [updateSettings, { isLoading, error }] =
+    useUpdatePlatformSettingsMutation();
+  const serverFieldErrors = readFieldErrors(error);
+  const changes = buildChanges(saved, draft);
+  const dirty = Object.keys(changes).length > 0;
+  const fieldErrors = Object.fromEntries(
+    Object.keys(NUMBER_LIMITS).map((key) => [
+      key,
+      numberError(key, draft[key]) ?? serverFieldErrors[key],
+    ]),
+  );
+  const messageTooLong =
+    draft.maintenanceMessage.length > MAINTENANCE_MESSAGE_MAX;
   const valid =
-    draft.platformName.trim() &&
-    emailValid &&
-    Number(draft.signupCredits) >= 0 &&
-    NUMBER_FIELDS.filter((key) => key !== 'signupCredits').every(
-      (key) => Number(draft[key]) > 0,
-    );
+    Object.values(fieldErrors).every((value) => !value) && !messageTooLong;
 
   function set(key) {
     return (value) => setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function setDefaultModel(capability, modelId) {
-    setDraft((current) => ({
-      ...current,
-      defaultModels: { ...current.defaultModels, [capability]: modelId },
-    }));
+  function numberProps(key, id) {
+    return {
+      id,
+      value: draft[key],
+      onChange: set(key),
+      error: fieldErrors[key] ?? undefined,
+    };
   }
 
-  function handleSave() {
-    setSaving(true);
-    simulateWork(() => {
-      setSaved(draft);
-      setSaving(false);
+  async function handleSave() {
+    if (!dirty || !valid) return;
+
+    try {
+      await updateSettings(changes).unwrap();
       toast.success('Platform settings saved');
-    }, 1100);
+    } catch {
+      return;
+    }
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <AdminPageHeader title="Platform settings" />
-
-      {saved.maintenanceMode ? (
+    <>
+      {settings.maintenanceMode ? (
         <NoticeAlert tone="warning">
           Maintenance mode is on. Users see the maintenance message and cannot
           start new generations.
         </NoticeAlert>
       ) : null}
+      <FormAlert>{error ? getErrorMessage(error) : null}</FormAlert>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="General" description="Shown in emails and the app shell.">
-          <Field id="platform-name" label="Platform name">
-            <Input
-              id="platform-name"
-              value={draft.platformName}
-              onChange={(event) => set('platformName')(event.target.value)}
-            />
-          </Field>
-          <Field
-            id="support-email"
-            label="Support email"
-            error={emailValid ? undefined : 'Enter a valid email address.'}
-          >
-            <Input
-              id="support-email"
-              type="email"
-              value={draft.supportEmail}
-              onChange={(event) => set('supportEmail')(event.target.value)}
-              aria-invalid={!emailValid || undefined}
-            />
-          </Field>
-        </Panel>
-
         <Panel title="Signup" description="What new accounts receive.">
           <NumberField
-            id="signup-credits"
+            {...numberProps('signupCredits', 'signup-credits')}
             label="Signup credits"
-            hint="Granted once, no card required."
-            value={draft.signupCredits}
-            onChange={set('signupCredits')}
+            hint="Granted once to every new account."
             suffix="credits"
           />
           <ToggleRow
             id="require-verification"
             label="Require email verification"
-            description="Credits unlock after the email is confirmed."
+            description="Users must confirm their email before generating."
             checked={draft.requireEmailVerification}
             onChange={set('requireEmailVerification')}
           />
-        </Panel>
-
-        <Panel title="Limits" description="Applied to every account.">
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-            <NumberField
-              id="max-tts-characters"
-              label="Max TTS characters"
-              value={draft.maxTtsCharacters}
-              onChange={set('maxTtsCharacters')}
-              suffix="chars"
-            />
-            <NumberField
-              id="max-upload"
-              label="Max upload size"
-              value={draft.maxUploadMb}
-              onChange={set('maxUploadMb')}
-              suffix="MB"
-            />
-            <NumberField
-              id="realtime-minutes"
-              label="Realtime session max"
-              value={draft.realtimeSessionMinutes}
-              onChange={set('realtimeSessionMinutes')}
-              suffix="min"
-            />
-          </div>
         </Panel>
 
         <Panel
@@ -188,7 +172,16 @@ export function PlatformSettingsView() {
             checked={draft.maintenanceMode}
             onChange={set('maintenanceMode')}
           />
-          <Field id="maintenance-message" label="Message shown to users">
+          <Field
+            id="maintenance-message"
+            label="Message shown to users"
+            hint={`${draft.maintenanceMessage.length}/${MAINTENANCE_MESSAGE_MAX} characters`}
+            error={
+              messageTooLong
+                ? `At most ${MAINTENANCE_MESSAGE_MAX} characters.`
+                : serverFieldErrors.maintenanceMessage
+            }
+          >
             <Textarea
               id="maintenance-message"
               rows={2}
@@ -196,59 +189,55 @@ export function PlatformSettingsView() {
               onChange={(event) =>
                 set('maintenanceMessage')(event.target.value)
               }
+              placeholder="We are upgrading the studio. Back shortly."
             />
           </Field>
         </Panel>
 
         <Panel
-          title="Default models"
-          description="Used when a request does not pick a model."
+          title="Limits"
+          description="Applied to every account."
           className="lg:col-span-2"
         >
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            {CAPABILITY_TAGS.map((capability) => {
-              const options = ADMIN_MODELS.filter(
-                (model) =>
-                  model.capabilities.includes(capability) &&
-                  model.status !== 'deprecated',
-              );
-
-              return (
-                <Field
-                  key={capability}
-                  id={`default-${capability}`}
-                  label={CAPABILITY_LABELS[capability]}
-                >
-                  <Select
-                    value={draft.defaultModels[capability]}
-                    onValueChange={(value) =>
-                      setDefaultModel(capability, value)
-                    }
-                  >
-                    <SelectTrigger
-                      id={`default-${capability}`}
-                      className="font-mono text-[12.5px]"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {options.map((model) => (
-                        <SelectItem
-                          key={model.id}
-                          value={model.id}
-                          className="font-mono text-[12.5px]"
-                        >
-                          {model.providerModelId}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              );
-            })}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <NumberField
+              {...numberProps('ttsMaxCharacters', 'max-tts-characters')}
+              label="Max TTS characters"
+              hint="100 to 20,000 per request."
+              suffix="chars"
+            />
+            <NumberField
+              {...numberProps('uploadMaxMegabytes', 'max-upload')}
+              label="Max upload size"
+              hint="1 to 25 MB."
+              suffix="MB"
+            />
+            <NumberField
+              {...numberProps('realtimeMaxMinutes', 'realtime-minutes')}
+              label="Realtime session max"
+              hint="1 to 60 minutes."
+              suffix="min"
+            />
+            <NumberField
+              {...numberProps('agentChatMaxMessages', 'agent-chat-messages')}
+              label="Agent test chat max"
+              hint="1 to 100 messages."
+              suffix="msgs"
+            />
           </div>
         </Panel>
       </div>
+      <p className="text-[12px] text-ink-3">
+        Default models and credit rates are managed on the{' '}
+        <Link href="/admin/models" className="text-brand hover:underline">
+          AI models
+        </Link>{' '}
+        and{' '}
+        <Link href="/admin/pricing" className="text-brand hover:underline">
+          credit pricing
+        </Link>{' '}
+        pages.
+      </p>
 
       {dirty ? (
         <div
@@ -264,16 +253,40 @@ export function PlatformSettingsView() {
               variant="ghost"
               size="sm"
               onClick={() => setDraft(saved)}
-              disabled={saving}
+              disabled={isLoading}
             >
               Discard
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={!valid || saving}>
-              {saving ? <Spinner /> : null}
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!valid || isLoading}
+            >
+              {isLoading ? <Spinner /> : null}
               Save changes
             </Button>
           </div>
         </div>
+      ) : null}
+    </>
+  );
+}
+
+export function PlatformSettingsView() {
+  const { data: settings, isLoading, error } = useGetPlatformSettingsQuery();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <AdminPageHeader title="Platform settings" />
+      {error ? <FormAlert>{getErrorMessage(error)}</FormAlert> : null}
+      {isLoading ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-52 rounded-2xl" />
+          <Skeleton className="h-52 rounded-2xl" />
+        </div>
+      ) : null}
+      {settings ? (
+        <SettingsForm key={settings.updatedAt} settings={settings} />
       ) : null}
     </div>
   );

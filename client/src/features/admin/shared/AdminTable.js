@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { getErrorMessage } from '@/lib/apiError';
 import { cn } from '@/lib/utils';
 
 export function AdminTable({
@@ -77,20 +78,42 @@ export function EmptyTableRow({ colSpan, children }) {
   );
 }
 
-export function usePagination(items, pageSize = 8) {
-  const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
-  const current = Math.min(page, pageCount);
-  const offset = (current - 1) * pageSize;
+export function LoadingTableRows({ colSpan, rows = 5 }) {
+  return Array.from({ length: rows }, (_, index) => (
+    <TableRow key={index} className="hover:bg-transparent">
+      <TableCell colSpan={colSpan} className="px-4 py-3">
+        <Skeleton className="h-6 w-full" />
+      </TableCell>
+    </TableRow>
+  ));
+}
+
+export function TableStateRows({ colSpan, isLoading, error, isEmpty, empty }) {
+  if (isLoading) return <LoadingTableRows colSpan={colSpan} />;
+  if (error) {
+    return (
+      <EmptyTableRow colSpan={colSpan}>
+        <span className="text-danger">{getErrorMessage(error)}</span>
+      </EmptyTableRow>
+    );
+  }
+  if (isEmpty) return <EmptyTableRow colSpan={colSpan}>{empty}</EmptyTableRow>;
+
+  return null;
+}
+
+export function serverPagination(meta, setPage) {
+  const page = meta?.page ?? 1;
+  const limit = meta?.limit ?? 0;
+  const total = meta?.total ?? 0;
 
   return {
-    page: current,
-    pageCount,
+    page,
+    pageCount: Math.max(1, meta?.totalPages ?? 1),
     setPage,
-    pageItems: items.slice(offset, offset + pageSize),
-    start: items.length ? offset + 1 : 0,
-    end: Math.min(offset + pageSize, items.length),
-    total: items.length,
+    start: total ? (page - 1) * limit + 1 : 0,
+    end: Math.min(page * limit, total),
+    total,
   };
 }
 

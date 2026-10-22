@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Coins, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Spinner } from '@/components/ui/Spinner';
 import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -15,139 +16,197 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { TableRow } from '@/components/ui/table';
-import { Chip } from '@/components/ui/ChoiceChips';
-import { AdminCell, AdminTable } from '@/features/admin/shared/AdminTable';
-import { AdminPageHeader } from '@/features/admin/shared/AdminToolbar';
-import { simulateWork } from '@/features/admin/shared/adminFormat';
-import { cn } from '@/lib/utils';
 import {
-  ADMIN_MODELS,
-  CAPABILITY_LABELS,
-  CAPABILITY_TAGS,
-  DEFAULT_MODELS,
-} from '@/mocks/adminModels';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  useCreateAiModelMutation,
+  useListAiCapabilitiesQuery,
+  useListAiModelsQuery,
+  useListAiProvidersQuery,
+} from '@/features/admin/adminApi';
+import { ModelPricingSheet } from '@/features/admin/models/ModelPricingSheet';
+import {
+  MODEL_STATUSES,
+  ModelStatusSelect,
+} from '@/features/admin/models/ModelStatusSelect';
+import {
+  AdminCell,
+  AdminTable,
+  PaginationFooter,
+  TableStateRows,
+  serverPagination,
+} from '@/features/admin/shared/AdminTable';
+import {
+  AdminPageHeader,
+  FilterSelect,
+  SearchField,
+} from '@/features/admin/shared/AdminToolbar';
+import { capabilityShortLabel } from '@/features/admin/shared/adminFormat';
+import { useDebouncedValue } from '@/features/admin/shared/useDebouncedValue';
+import { getErrorMessage, readFieldErrors } from '@/lib/apiError';
 
-const COLUMNS = ['Model', 'Provider', 'Capabilities', 'Default for', 'Status'];
+const PAGE_SIZE = 10;
 
-function DefaultDot({ capability, active, disabled, onSelect }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      disabled={disabled}
-      onClick={onSelect}
-      title={
-        disabled
-          ? 'Enable the model to make it a default'
-          : `Default ${CAPABILITY_LABELS[capability]} model`
-      }
-      className={cn(
-        'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50',
-        active
-          ? 'border-brand/60 bg-brand-tint text-brand'
-          : 'bg-field text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'flex size-3 items-center justify-center rounded-full border',
-          active ? 'border-brand' : 'border-ink-3',
-        )}
-      >
-        {active ? <span className="size-1.5 rounded-full bg-brand" /> : null}
-      </span>
-      {capability}
-    </button>
-  );
+const COLUMNS = [
+  'Model',
+  'Provider',
+  'Capabilities & rates',
+  'Default for',
+  'Status',
+  { key: 'actions', label: 'Actions', srOnly: true },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All statuses' },
+  ...Object.entries(MODEL_STATUSES).map(([value, status]) => ({
+    value,
+    label: status.label,
+  })),
+];
+
+const SLUG_PATTERN = /^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$/;
+const PROVIDER_MODEL_ID_PATTERN = /^[A-Za-z0-9._:/-]+$/;
+
+function toSlug(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-function AddModelForm({ onCreate, onCancel }) {
+function AddModelForm({ providers, onDone, onCancel }) {
+  const [providerId, setProviderId] = useState(providers[0]?.id ?? '');
   const [name, setName] = useState('');
-  const [modelId, setModelId] = useState('');
-  const [capabilities, setCapabilities] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const canSubmit = name.trim() && modelId.trim() && capabilities.length > 0;
+  const [slug, setSlug] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [providerModelId, setProviderModelId] = useState('');
+  const [description, setDescription] = useState('');
+  const [createModel, { isLoading, error }] = useCreateAiModelMutation();
+  const fieldErrors = readFieldErrors(error);
+  const effectiveSlug = slugTouched ? slug.trim() : toSlug(name);
+  const slugInvalid =
+    Boolean(effectiveSlug) && !SLUG_PATTERN.test(effectiveSlug);
+  const modelIdInvalid =
+    Boolean(providerModelId.trim()) &&
+    !PROVIDER_MODEL_ID_PATTERN.test(providerModelId.trim());
+  const canSubmit =
+    providerId &&
+    name.trim() &&
+    effectiveSlug &&
+    !slugInvalid &&
+    providerModelId.trim() &&
+    !modelIdInvalid;
 
-  function toggleCapability(capability) {
-    setCapabilities((current) =>
-      current.includes(capability)
-        ? current.filter((item) => item !== capability)
-        : [...current, capability],
-    );
-  }
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    if (!canSubmit) return;
-    setSaving(true);
-    simulateWork(() => {
-      setSaving(false);
-      onCreate({
-        id: modelId.trim(),
+    if (!canSubmit || isLoading) return;
+
+    try {
+      const model = await createModel({
+        providerId,
         name: name.trim(),
-        providerModelId: modelId.trim(),
-        provider: 'OpenAI',
-        capabilities: CAPABILITY_TAGS.filter((tag) =>
-          capabilities.includes(tag),
-        ),
-        enabled: false,
-        status: 'active',
-        note: 'Added manually',
-      });
-    });
+        slug: effectiveSlug,
+        providerModelId: providerModelId.trim(),
+        description: description.trim() || null,
+      }).unwrap();
+
+      toast.success(`${model.name} added as a draft. Set its rates next.`);
+      onDone(model);
+    } catch {
+      return;
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <Field id="model-name" label="Display name">
-        <Input
-          id="model-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="GPT Realtime 2.2 mini"
-        />
+      <FormAlert>{error ? getErrorMessage(error) : null}</FormAlert>
+      <Field id="model-provider" label="Provider">
+        <Select value={providerId} onValueChange={setProviderId}>
+          <SelectTrigger id="model-provider">
+            <SelectValue placeholder="Select a provider" />
+          </SelectTrigger>
+          <SelectContent>
+            {providers.map((provider) => (
+              <SelectItem key={provider.id} value={provider.id}>
+                {provider.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="model-name" label="Display name" error={fieldErrors.name}>
+          <Input
+            id="model-name"
+            value={name}
+            maxLength={100}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="GPT Realtime 2.2 mini"
+          />
+        </Field>
+        <Field
+          id="model-slug"
+          label="Slug"
+          error={
+            slugInvalid
+              ? 'Letters, numbers and single dashes only.'
+              : fieldErrors.slug
+          }
+        >
+          <Input
+            id="model-slug"
+            value={effectiveSlug}
+            maxLength={100}
+            onChange={(event) => {
+              setSlugTouched(true);
+              setSlug(event.target.value);
+            }}
+            placeholder="gpt-realtime-2-2-mini"
+            className="font-mono"
+          />
+        </Field>
+      </div>
       <Field
         id="model-id"
         label="Provider model ID"
-        hint="Exactly as the OpenAI API expects it."
+        hint="Exactly as the provider API expects it."
+        error={
+          modelIdInvalid
+            ? 'Letters, numbers and . _ : / - only.'
+            : fieldErrors.providerModelId
+        }
       >
         <Input
           id="model-id"
-          value={modelId}
-          onChange={(event) => setModelId(event.target.value)}
+          value={providerModelId}
+          maxLength={150}
+          onChange={(event) => setProviderModelId(event.target.value)}
           placeholder="gpt-realtime-2.2-mini"
           className="font-mono"
         />
       </Field>
-      <div className="flex flex-col gap-2">
-        <Label id="model-capabilities-label">Capabilities</Label>
-        <div
-          role="group"
-          aria-labelledby="model-capabilities-label"
-          className="flex flex-wrap gap-2"
-        >
-          {CAPABILITY_TAGS.map((capability) => (
-            <Chip
-              key={capability}
-              selected={capabilities.includes(capability)}
-              onClick={() => toggleCapability(capability)}
-            >
-              {capability}
-            </Chip>
-          ))}
-        </div>
-      </div>
+      <Field id="model-description" label="Description">
+        <Textarea
+          id="model-description"
+          rows={2}
+          maxLength={500}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      </Field>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!canSubmit || saving}>
-          {saving ? <Spinner /> : null}
+        <Button type="submit" disabled={!canSubmit || isLoading}>
+          {isLoading ? <Spinner /> : null}
           Add model
         </Button>
       </DialogFooter>
@@ -156,62 +215,111 @@ function AddModelForm({ onCreate, onCancel }) {
 }
 
 export function ModelsView() {
-  const [models, setModels] = useState(ADMIN_MODELS);
-  const [defaults, setDefaults] = useState(DEFAULT_MODELS);
+  const [query, setQuery] = useState('');
+  const [providerId, setProviderId] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [capability, setCapability] = useState('all');
+  const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
-  const enabledCount = models.filter((model) => model.enabled).length;
+  const [pricingId, setPricingId] = useState(null);
+  const search = useDebouncedValue(query.trim());
+  const { data: providers } = useListAiProvidersQuery();
+  const { data: capabilities } = useListAiCapabilitiesQuery();
+  const { data, isLoading, isFetching, error } = useListAiModelsQuery({
+    page,
+    limit: PAGE_SIZE,
+    search,
+    providerId: providerId === 'all' ? undefined : providerId,
+    status: status === 'all' ? undefined : status,
+    capability: capability === 'all' ? undefined : capability,
+  });
+  const models = data?.items ?? [];
 
-  function handleToggle(model, enabled) {
-    const defaultFor = Object.entries(defaults)
-      .filter(([, id]) => id === model.id)
-      .map(([capability]) => capability);
+  const providerOptions = [
+    { value: 'all', label: 'All providers' },
+    ...(providers ?? []).map((provider) => ({
+      value: provider.id,
+      label: provider.name,
+    })),
+  ];
+  const capabilityOptions = [
+    { value: 'all', label: 'All capabilities' },
+    ...(capabilities ?? []).map((item) => ({
+      value: item.code,
+      label: item.label,
+    })),
+  ];
 
-    if (!enabled && defaultFor.length) {
-      toast.error(
-        `${model.providerModelId} is the default for ${defaultFor.join(', ')}. Pick another default first.`,
-      );
-      return;
-    }
-
-    setModels((current) =>
-      current.map((item) =>
-        item.id === model.id ? { ...item, enabled } : item,
-      ),
-    );
-    toast.success(
-      `${model.providerModelId} ${enabled ? 'enabled' : 'disabled'}`,
-    );
-  }
-
-  function handleSetDefault(capability, model) {
-    if (defaults[capability] === model.id) return;
-    setDefaults((current) => ({ ...current, [capability]: model.id }));
-    toast.success(
-      `${model.providerModelId} is now the default for ${CAPABILITY_LABELS[capability]}`,
-    );
-  }
-
-  function handleCreate(model) {
-    setModels((current) => [...current, model]);
-    setAdding(false);
-    toast.success(`${model.providerModelId} added (disabled)`);
+  function changeFilter(setter) {
+    return (value) => {
+      setter(value);
+      setPage(1);
+    };
   }
 
   return (
     <div className="flex flex-col gap-4">
       <AdminPageHeader
         title="AI model management"
-        count={`${enabledCount} of ${models.length} enabled`}
+        count={data ? `${data.meta.total} models` : null}
       >
-        <Button size="sm" onClick={() => setAdding(true)}>
+        <Button
+          size="sm"
+          onClick={() => setAdding(true)}
+          disabled={!providers?.length}
+        >
           <Plus />
           Add model
         </Button>
       </AdminPageHeader>
 
-      <AdminTable columns={COLUMNS} tableClassName="min-w-[860px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchField
+          value={query}
+          onChange={changeFilter(setQuery)}
+          placeholder="Search models..."
+        />
+        <FilterSelect
+          label="Filter by provider"
+          value={providerId}
+          onChange={changeFilter(setProviderId)}
+          options={providerOptions}
+        />
+        <FilterSelect
+          label="Filter by status"
+          value={status}
+          onChange={changeFilter(setStatus)}
+          options={STATUS_OPTIONS}
+        />
+        <FilterSelect
+          label="Filter by capability"
+          value={capability}
+          onChange={changeFilter(setCapability)}
+          options={capabilityOptions}
+          className="sm:w-52"
+        />
+      </div>
+
+      <AdminTable
+        columns={COLUMNS}
+        tableClassName="min-w-[980px]"
+        className={isFetching && !isLoading ? 'opacity-70' : undefined}
+        footer={
+          <PaginationFooter
+            pagination={serverPagination(data?.meta, setPage)}
+          />
+        }
+      >
+        <TableStateRows
+          colSpan={COLUMNS.length}
+          isLoading={isLoading}
+          error={error}
+          isEmpty={data && models.length === 0}
+          empty="No models match these filters."
+        />
         {models.map((model) => {
-          const deprecated = model.status === 'deprecated';
+          const enabled = model.capabilities.filter((item) => item.enabled);
+          const defaults = model.capabilities.filter((item) => item.isDefault);
 
           return (
             <TableRow key={model.id}>
@@ -221,50 +329,58 @@ export function ModelsView() {
                   {model.providerModelId}
                 </p>
               </AdminCell>
-              <AdminCell className="text-muted-foreground">
-                {model.provider}
+              <AdminCell className="whitespace-nowrap text-muted-foreground">
+                {model.provider?.name ?? '—'}
+                {model.provider?.status === 'disabled' ? (
+                  <span className="block text-[11px] text-warning">
+                    Provider disabled
+                  </span>
+                ) : null}
               </AdminCell>
               <AdminCell>
                 <div className="flex flex-wrap gap-1.5">
-                  {model.capabilities.map((capability) => (
-                    <Tag key={capability}>{capability}</Tag>
-                  ))}
-                </div>
-              </AdminCell>
-              <AdminCell>
-                <div className="flex flex-wrap gap-1.5">
-                  {model.capabilities.map((capability) => (
-                    <DefaultDot
-                      key={capability}
-                      capability={capability}
-                      active={defaults[capability] === model.id}
-                      disabled={!model.enabled || deprecated}
-                      onSelect={() => handleSetDefault(capability, model)}
-                    />
-                  ))}
-                </div>
-              </AdminCell>
-              <AdminCell>
-                <div className="flex items-center gap-2.5">
-                  <Switch
-                    checked={model.enabled}
-                    disabled={deprecated}
-                    onCheckedChange={(enabled) => handleToggle(model, enabled)}
-                    aria-label={`${model.providerModelId} enabled`}
-                  />
-                  {deprecated ? (
-                    <span className="flex flex-col gap-0.5">
-                      <StatusBadge tone="warning">Deprecated</StatusBadge>
-                      <span className="text-[11px] whitespace-nowrap text-ink-3">
-                        {model.note}
-                      </span>
-                    </span>
+                  {enabled.length ? (
+                    enabled.map((item) => (
+                      <Tag key={item.code} className="gap-1">
+                        {capabilityShortLabel(item.code)}
+                        <span className="font-mono text-foreground">
+                          {item.creditsPerUnit ?? '—'}
+                        </span>
+                      </Tag>
+                    ))
                   ) : (
-                    <span className="text-[12px] whitespace-nowrap text-ink-3">
-                      {model.enabled ? 'Enabled' : 'Disabled'}
+                    <span className="text-[12px] text-ink-3">
+                      No capabilities yet
                     </span>
                   )}
                 </div>
+              </AdminCell>
+              <AdminCell>
+                <div className="flex flex-wrap gap-1.5">
+                  {defaults.length ? (
+                    defaults.map((item) => (
+                      <StatusBadge key={item.code} tone="brand" dot={false}>
+                        {capabilityShortLabel(item.code)}
+                      </StatusBadge>
+                    ))
+                  ) : (
+                    <span className="text-[12px] text-ink-3">—</span>
+                  )}
+                </div>
+              </AdminCell>
+              <AdminCell>
+                <ModelStatusSelect model={model} />
+              </AdminCell>
+              <AdminCell className="text-right">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPricingId(model.id)}
+                  aria-label={`Edit rates for ${model.name}`}
+                >
+                  <Coins />
+                  Rates
+                </Button>
               </AdminCell>
             </TableRow>
           );
@@ -272,21 +388,32 @@ export function ModelsView() {
       </AdminTable>
 
       <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <div className="flex flex-col gap-1.5 pr-6">
             <DialogTitle>Add model</DialogTitle>
             <DialogDescription>
-              Register an OpenAI model. It starts disabled.
+              Models start as drafts. Enable and price a capability before
+              activating it.
             </DialogDescription>
           </div>
-          {adding ? (
+          {adding && providers ? (
             <AddModelForm
-              onCreate={handleCreate}
+              providers={providers}
+              onDone={(model) => {
+                setAdding(false);
+                setPricingId(model.id);
+              }}
               onCancel={() => setAdding(false)}
             />
           ) : null}
         </DialogContent>
       </Dialog>
+      <ModelPricingSheet
+        modelId={pricingId}
+        onOpenChange={(open) => {
+          if (!open) setPricingId(null);
+        }}
+      />
     </div>
   );
 }

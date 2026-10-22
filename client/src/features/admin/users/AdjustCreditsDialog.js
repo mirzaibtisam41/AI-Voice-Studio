@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,37 +16,60 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useAdjustUserCreditsMutation } from '@/features/admin/adminApi';
 import {
+  createIdempotencyKey,
   formatCredits,
   formatSignedCredits,
-  simulateWork,
 } from '@/features/admin/shared/adminFormat';
+import { getErrorMessage } from '@/lib/apiError';
 import { cn } from '@/lib/utils';
 
-function AdjustCreditsForm({ user, onSubmit, onCancel }) {
+const MAX_AMOUNT = 100000;
+const REASON_MIN_LENGTH = 3;
+
+function AdjustCreditsForm({ user, onDone, onCancel }) {
+  const [idempotencyKey] = useState(() => createIdempotencyKey('adjust'));
   const [direction, setDirection] = useState('add');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [adjustCredits, { isLoading, error }] = useAdjustUserCreditsMutation();
   const numericAmount = Math.max(0, Math.floor(Number(amount) || 0));
   const delta = direction === 'add' ? numericAmount : -numericAmount;
-  const nextBalance = user.credits + delta;
+  const balance = user.balance ?? 0;
+  const nextBalance = balance + delta;
   const invalidBalance = nextBalance < 0;
+  const tooLarge = numericAmount > MAX_AMOUNT;
   const canSubmit =
-    numericAmount > 0 && reason.trim().length > 0 && !invalidBalance;
+    numericAmount > 0 &&
+    !tooLarge &&
+    reason.trim().length >= REASON_MIN_LENGTH &&
+    !invalidBalance;
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    if (!canSubmit) return;
-    setSaving(true);
-    simulateWork(() => {
-      setSaving(false);
-      onSubmit(delta, reason.trim());
-    });
+    if (!canSubmit || isLoading) return;
+
+    try {
+      const result = await adjustCredits({
+        userId: user.id,
+        amount: delta,
+        reason: reason.trim(),
+        idempotencyKey,
+      }).unwrap();
+
+      toast.success(
+        `${result.message}: ${formatSignedCredits(result.transaction.amount)} for ${user.name}. New balance ${formatCredits(result.balance)}.`,
+      );
+      onDone();
+    } catch {
+      return;
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormAlert>{error ? getErrorMessage(error) : null}</FormAlert>
       <div
         role="group"
         aria-label="Adjustment direction"
@@ -74,37 +99,45 @@ function AdjustCreditsForm({ user, onSubmit, onCancel }) {
       <Field
         id="adjust-amount"
         label="Amount (credits)"
-        error={invalidBalance ? 'Balance cannot go below zero.' : undefined}
+        error={
+          invalidBalance
+            ? 'Balance cannot go below zero.'
+            : tooLarge
+              ? `At most ${formatCredits(MAX_AMOUNT)} credits per adjustment.`
+              : undefined
+        }
       >
         <Input
           id="adjust-amount"
           type="number"
           min="1"
+          max={MAX_AMOUNT}
           inputMode="numeric"
           value={amount}
           onChange={(event) => setAmount(event.target.value)}
           placeholder="25"
           className="font-mono"
-          aria-invalid={invalidBalance || undefined}
+          aria-invalid={invalidBalance || tooLarge || undefined}
         />
       </Field>
       <Field
         id="adjust-reason"
         label="Reason"
-        hint="Required. Visible in the audit log."
+        hint="Required, at least 3 characters. Visible in the audit log."
       >
         <Textarea
           id="adjust-reason"
           value={reason}
+          maxLength={300}
           onChange={(event) => setReason(event.target.value)}
-          placeholder="e.g. Refund for failed job job_8f27b0"
+          placeholder="e.g. Goodwill credit after a failed job"
           rows={3}
         />
       </Field>
       <div className="grid grid-cols-3 gap-2 rounded-xl border bg-field/60 p-3 text-center">
         <div>
           <p className="text-[11px] text-ink-3">Current</p>
-          <p className="font-mono text-[13px]">{formatCredits(user.credits)}</p>
+          <p className="font-mono text-[13px]">{formatCredits(balance)}</p>
         </div>
         <div>
           <p className="text-[11px] text-ink-3">Change</p>
@@ -134,8 +167,8 @@ function AdjustCreditsForm({ user, onSubmit, onCancel }) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!canSubmit || saving}>
-          {saving ? <Spinner /> : null}
+        <Button type="submit" disabled={!canSubmit || isLoading}>
+          {isLoading ? <Spinner /> : null}
           Confirm adjustment
         </Button>
       </DialogFooter>
@@ -143,7 +176,7 @@ function AdjustCreditsForm({ user, onSubmit, onCancel }) {
   );
 }
 
-export function AdjustCreditsDialog({ user, onOpenChange, onSubmit }) {
+export function AdjustCreditsDialog({ user, onOpenChange }) {
   return (
     <Dialog open={Boolean(user)} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -158,7 +191,7 @@ export function AdjustCreditsDialog({ user, onOpenChange, onSubmit }) {
             <AdjustCreditsForm
               key={user.id}
               user={user}
-              onSubmit={onSubmit}
+              onDone={() => onOpenChange(false)}
               onCancel={() => onOpenChange(false)}
             />
           </>

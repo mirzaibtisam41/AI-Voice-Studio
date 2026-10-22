@@ -2,35 +2,47 @@
 
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Spinner } from '@/components/ui/Spinner';
 import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { TableRow } from '@/components/ui/table';
-import { JobDetailsSheet } from '@/features/admin/generations/JobDetailsSheet';
+import {
+  useGetGenerationStatsQuery,
+  useListAdminGenerationsQuery,
+} from '@/features/admin/adminApi';
+import {
+  GENERATION_STATUSES,
+  JobDetailsSheet,
+} from '@/features/admin/generations/JobDetailsSheet';
 import {
   AdminCell,
   AdminTable,
-  EmptyTableRow,
   PaginationFooter,
-  usePagination,
+  TableStateRows,
+  serverPagination,
 } from '@/features/admin/shared/AdminTable';
 import {
   AdminPageHeader,
+  DateFilter,
   FilterSelect,
   SearchField,
 } from '@/features/admin/shared/AdminToolbar';
 import {
+  CAPABILITY_SHORT_LABELS,
+  capabilityShortLabel,
   formatCredits,
-  simulateWork,
+  formatTimeOfDay,
 } from '@/features/admin/shared/adminFormat';
-import { formatDateTime, formatDuration } from '@/lib/format';
-import { ADMIN_JOBS, JOB_STATUSES, JOB_TYPES } from '@/mocks/adminJobs';
+import { useDebouncedValue } from '@/features/admin/shared/useDebouncedValue';
+import { formatDateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
+
+const PAGE_SIZE = 10;
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
-  ...Object.entries(JOB_STATUSES).map(([value, status]) => ({
+  ...Object.entries(GENERATION_STATUSES).map(([value, status]) => ({
     value,
     label: status.label,
   })),
@@ -38,7 +50,10 @@ const STATUS_OPTIONS = [
 
 const TYPE_OPTIONS = [
   { value: 'all', label: 'All' },
-  ...JOB_TYPES.map((type) => ({ value: type, label: type })),
+  ...Object.entries(CAPABILITY_SHORT_LABELS).map(([value, label]) => ({
+    value,
+    label,
+  })),
 ];
 
 const COLUMNS = [
@@ -48,92 +63,85 @@ const COLUMNS = [
   'Model',
   'Status',
   'Credits',
-  'Duration',
   'Started',
 ];
 
-function advanceJobs(jobs) {
-  return jobs.map((job) => {
-    if (job.status === 'processing') {
-      return {
-        ...job,
-        status: 'completed',
-        credits: job.creditsHeld || 3,
-        durationSec: 48,
-      };
-    }
-    if (job.status === 'queued') return { ...job, status: 'processing' };
+const STAT_ITEMS = [
+  { key: 'all', label: 'Jobs', className: 'text-foreground' },
+  { key: 'processing', label: 'Processing', className: 'text-blue' },
+  { key: 'completed', label: 'Completed', className: 'text-success' },
+  { key: 'failed', label: 'Failed', className: 'text-danger' },
+];
 
-    return job;
-  });
-}
+function StatsStrip() {
+  const { data } = useGetGenerationStatsQuery();
 
-function formatClock(date) {
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {STAT_ITEMS.map((item) => (
+        <div key={item.key} className="rounded-2xl border bg-card px-4 py-3">
+          <p className="text-[11.5px] text-ink-3">
+            {item.label} · last {data?.hours ?? 24}h
+          </p>
+          <p
+            className={cn(
+              'mt-1 font-serif text-[22px] leading-none font-semibold',
+              item.className,
+            )}
+          >
+            {data ? formatCredits(data.counts[item.key]) : '—'}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function GenerationsView() {
-  const [jobs, setJobs] = useState(ADMIN_JOBS);
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');
   const [query, setQuery] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState('9:42:10 AM');
-
-  const term = query.trim().toLowerCase();
-  const filtered = jobs.filter(
-    (job) =>
-      (status === 'all' || job.status === status) &&
-      (type === 'all' || job.type === type) &&
-      `${job.userName} ${job.id}`.toLowerCase().includes(term),
-  );
-  const pagination = usePagination(filtered, 10);
-  const selectedJob = jobs.find((job) => job.id === selectedId) ?? null;
+  const search = useDebouncedValue(query.trim());
+  const statsQuery = useGetGenerationStatsQuery();
+  const { data, isLoading, isFetching, error, refetch, fulfilledTimeStamp } =
+    useListAdminGenerationsQuery({
+      page,
+      limit: PAGE_SIZE,
+      search,
+      status: status === 'all' ? undefined : status,
+      capability: type === 'all' ? undefined : type,
+      from: from || undefined,
+      to: to || undefined,
+    });
+  const generations = data?.items ?? [];
 
   function changeFilter(setter) {
     return (value) => {
       setter(value);
-      pagination.setPage(1);
+      setPage(1);
     };
   }
 
   function handleRefresh() {
-    setRefreshing(true);
-    simulateWork(() => {
-      setJobs(advanceJobs);
-      setUpdatedAt(formatClock(new Date()));
-      setRefreshing(false);
-      toast.success('Job list refreshed');
-    }, 800);
-  }
-
-  function handleRefund(job) {
-    setJobs((current) =>
-      current.map((item) =>
-        item.id === job.id ? { ...item, refunded: true } : item,
-      ),
-    );
-    toast.success(
-      `${formatCredits(job.creditsHeld)} credits refunded to ${job.userName}`,
-    );
+    refetch();
+    statsQuery.refetch();
   }
 
   return (
     <div className="flex flex-col gap-4">
       <AdminPageHeader
         title="Audio generation monitoring"
-        count={`${filtered.length} jobs`}
+        count={data ? `${data.meta.total} jobs` : null}
       >
         <SearchField
           value={query}
           onChange={changeFilter(setQuery)}
-          placeholder="Search by user..."
-          className="sm:w-52"
+          placeholder="Search by user email..."
+          className="sm:w-56"
         />
         <FilterSelect
           label="Filter by status"
@@ -142,102 +150,141 @@ export function GenerationsView() {
           options={STATUS_OPTIONS}
         />
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11.5px] whitespace-nowrap text-ink-3">
-            Updated {updatedAt}
-          </span>
+          {fulfilledTimeStamp ? (
+            <span className="font-mono text-[11.5px] whitespace-nowrap text-ink-3">
+              Updated {formatTimeOfDay(fulfilledTimeStamp)}
+            </span>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={refreshing}
+            disabled={isFetching}
           >
-            {refreshing ? <Spinner /> : <RefreshCw />}
+            {isFetching ? <Spinner /> : <RefreshCw />}
             Refresh
           </Button>
         </div>
       </AdminPageHeader>
 
-      <ChoiceChips
-        label="Filter by type"
-        options={TYPE_OPTIONS}
-        value={type}
-        onChange={changeFilter(setType)}
-      />
+      <StatsStrip />
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <ChoiceChips
+          label="Filter by type"
+          options={TYPE_OPTIONS}
+          value={type}
+          onChange={changeFilter(setType)}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <DateFilter
+            id="generations-from"
+            label="From"
+            value={from}
+            onChange={changeFilter(setFrom)}
+          />
+          <DateFilter
+            id="generations-to"
+            label="To"
+            value={to}
+            onChange={changeFilter(setTo)}
+          />
+          {from || to ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFrom('');
+                setTo('');
+                setPage(1);
+              }}
+            >
+              Clear dates
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
       <AdminTable
         columns={COLUMNS}
         tableClassName="min-w-[900px]"
-        footer={<PaginationFooter pagination={pagination} />}
+        className={isFetching && !isLoading ? 'opacity-70' : undefined}
+        footer={
+          <PaginationFooter
+            pagination={serverPagination(data?.meta, setPage)}
+          />
+        }
       >
-        {pagination.pageItems.length ? (
-          pagination.pageItems.map((job) => {
-            const jobStatus = JOB_STATUSES[job.status];
+        <TableStateRows
+          colSpan={COLUMNS.length}
+          isLoading={isLoading}
+          error={error}
+          isEmpty={data && generations.length === 0}
+          empty="No jobs match these filters."
+        />
+        {generations.map((job) => {
+          const jobStatus =
+            GENERATION_STATUSES[job.status] ?? GENERATION_STATUSES.processing;
 
-            return (
-              <TableRow
-                key={job.id}
-                onClick={() => setSelectedId(job.id)}
-                className="cursor-pointer"
-              >
-                <AdminCell>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setSelectedId(job.id);
-                    }}
-                    className="rounded font-mono text-[12px] text-foreground outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                    aria-label={`Open details for ${job.id}`}
-                  >
-                    {job.id}
-                  </button>
-                </AdminCell>
-                <AdminCell className="whitespace-nowrap">
-                  {job.userName}
-                </AdminCell>
-                <AdminCell>
-                  <Tag>{job.type}</Tag>
-                </AdminCell>
-                <AdminCell className="font-mono text-[12px] whitespace-nowrap text-muted-foreground">
-                  {job.model}
-                </AdminCell>
-                <AdminCell>
-                  <div className="flex items-center gap-1.5">
-                    <StatusBadge tone={jobStatus.tone}>
-                      {jobStatus.label}
+          return (
+            <TableRow
+              key={job.id}
+              onClick={() => setSelectedId(job.id)}
+              className="cursor-pointer"
+            >
+              <AdminCell>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedId(job.id);
+                  }}
+                  className="rounded font-mono text-[12px] text-foreground outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  aria-label={`Open details for job ${job.id}`}
+                >
+                  {job.id.slice(-8)}
+                </button>
+              </AdminCell>
+              <AdminCell className="whitespace-nowrap">
+                <p className="text-[13px]">{job.user?.name ?? '—'}</p>
+                <p className="text-[11.5px] text-ink-3">{job.user?.email}</p>
+              </AdminCell>
+              <AdminCell>
+                <Tag>{capabilityShortLabel(job.capability)}</Tag>
+              </AdminCell>
+              <AdminCell className="font-mono text-[12px] whitespace-nowrap text-muted-foreground">
+                {job.providerModelId ?? '—'}
+              </AdminCell>
+              <AdminCell>
+                <div className="flex items-center gap-1.5">
+                  <StatusBadge tone={jobStatus.tone}>
+                    {jobStatus.label}
+                  </StatusBadge>
+                  {job.creditsRefunded > 0 ? (
+                    <StatusBadge tone="neutral" dot={false}>
+                      Refunded
                     </StatusBadge>
-                    {job.refunded ? (
-                      <StatusBadge tone="neutral" dot={false}>
-                        Refunded
-                      </StatusBadge>
-                    ) : null}
-                  </div>
-                </AdminCell>
-                <AdminCell className="font-mono text-[12.5px]">
-                  {job.credits ? formatCredits(job.credits) : '—'}
-                </AdminCell>
-                <AdminCell className="font-mono text-[12.5px] text-muted-foreground">
-                  {job.durationSec ? formatDuration(job.durationSec) : '—'}
-                </AdminCell>
-                <AdminCell className="font-mono text-[12px] whitespace-nowrap text-ink-3">
-                  {formatDateTime(job.startedAt)}
-                </AdminCell>
-              </TableRow>
-            );
-          })
-        ) : (
-          <EmptyTableRow colSpan={COLUMNS.length}>
-            No jobs match these filters.
-          </EmptyTableRow>
-        )}
+                  ) : null}
+                </div>
+              </AdminCell>
+              <AdminCell className="font-mono text-[12.5px]">
+                {job.status === 'processing'
+                  ? `${formatCredits(job.creditsHeld)} held`
+                  : formatCredits(job.creditsCharged)}
+              </AdminCell>
+              <AdminCell className="font-mono text-[12px] whitespace-nowrap text-ink-3">
+                {formatDateTime(job.createdAt)}
+              </AdminCell>
+            </TableRow>
+          );
+        })}
       </AdminTable>
 
       <JobDetailsSheet
-        job={selectedJob}
+        jobId={selectedId}
         onOpenChange={(open) => {
           if (!open) setSelectedId(null);
         }}
-        onRefund={handleRefund}
       />
     </div>
   );
