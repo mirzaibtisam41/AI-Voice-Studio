@@ -2,7 +2,10 @@ import Link from 'next/link';
 import { ArrowRight, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HeroDemo } from '@/features/marketing/HeroDemo';
-import { HERO_STATS } from '@/features/marketing/landingContent';
+import {
+  HeroStats,
+  SignupCreditsText,
+} from '@/features/marketing/PlatformFacts';
 import { Overline } from '@/features/marketing/SectionHeading';
 
 export function HeroSection() {
@@ -25,13 +28,16 @@ export function HeroSection() {
             Give every word a voice worth listening to.
           </h1>
           <p className="max-w-xl text-[16px] text-pretty text-muted-foreground sm:text-[17px]">
-            Generate lifelike speech, transcribe meetings, clone voices and run
-            real-time voice agents from one studio with one credit balance.
+            Generate lifelike speech, transcribe recordings, talk to AI in real
+            time and build voice agents from one studio with one credit balance.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg">
               <Link href="/register">
-                Start free — 50 credits
+                <SignupCreditsText
+                  template="Start free — {credits} credits"
+                  fallback="Start free"
+                />
                 <ArrowRight />
               </Link>
             </Button>
@@ -42,16 +48,7 @@ export function HeroSection() {
               </a>
             </Button>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 border-t pt-6 sm:grid-cols-4">
-            {HERO_STATS.map((stat) => (
-              <div key={stat.label} className="flex flex-col gap-0.5">
-                <dt className="order-2 text-[12px] text-ink-3">{stat.label}</dt>
-                <dd className="order-1 font-mono text-[17px] font-medium">
-                  {stat.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <HeroStats />
         </div>
         <HeroDemo />
       </div>

@@ -58,7 +58,7 @@ export function HeroDemo() {
           </span>
           <p className="font-semibold">Try text to speech</p>
         </div>
-        <StatusBadge tone="success">Live demo</StatusBadge>
+        <StatusBadge tone="neutral">Sample preview</StatusBadge>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -106,7 +106,8 @@ export function HeroDemo() {
       </div>
 
       <p className="mt-3 text-center text-[12px] text-ink-3">
-        Demo is limited to {DEMO_CHARACTER_LIMIT} characters
+        This is a sample preview with placeholder audio. Create a free account
+        to generate real speech.
       </p>
     </div>
   );

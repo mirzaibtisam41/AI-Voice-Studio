@@ -15,8 +15,8 @@ export function MarketingFooter() {
               <BrandName />
             </Link>
             <p className="text-[13.5px] text-muted-foreground">
-              Every voice your product needs — speech, transcription, cloning
-              and real-time agents in one studio.
+              Every voice your product needs — speech, transcription, real-time
+              conversations and voice agents in one studio.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">

@@ -1,7 +1,7 @@
-import { Bot, Check, FileText, Mic } from 'lucide-react';
+import { AudioLines, Bot, Check, FileText } from 'lucide-react';
 import { Waveform } from '@/components/audio/Waveform';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { TRANSCRIPT_LINES } from '@/features/marketing/landingContent';
+import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
+import { TRANSCRIPT_TEXT } from '@/features/marketing/landingContent';
 import { Overline } from '@/features/marketing/SectionHeading';
 import { cn } from '@/lib/utils';
 
@@ -29,70 +29,41 @@ function TranscriptMock() {
       title="launch-sync.mp3"
       badge={<StatusBadge tone="success">Completed</StatusBadge>}
     >
-      <ul className="flex flex-col gap-4">
-        {TRANSCRIPT_LINES.map((line) => (
-          <li key={line.time} className="flex gap-3">
-            <span className="w-11 shrink-0 pt-0.5 font-mono text-[11.5px] text-ink-3">
-              {line.time}
-            </span>
-            <div className="min-w-0">
-              <p className={cn('text-[12.5px] font-semibold', line.tone)}>
-                {line.speaker}
-              </p>
-              <p className="text-[13.5px] text-muted-foreground">{line.text}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-5 flex flex-wrap gap-2 border-t pt-4 font-mono text-[11.5px] text-ink-3">
-        <span>English</span>
-        <span aria-hidden="true">·</span>
-        <span>2 speakers</span>
-        <span aria-hidden="true">·</span>
-        <span>12:48</span>
+      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+        {TRANSCRIPT_TEXT}
+      </p>
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4 font-mono text-[11.5px] text-ink-3">
+        <span>Detected language</span>
+        <Tag>English</Tag>
       </div>
     </MockCard>
   );
 }
 
-function CloningMock() {
+function SpeechMock() {
   return (
     <MockCard
-      icon={Mic}
-      title="New voice clone"
-      badge={<StatusBadge tone="brand">Recording</StatusBadge>}
+      icon={AudioLines}
+      title="product-intro.mp3"
+      badge={<StatusBadge tone="success">Ready</StatusBadge>}
     >
-      <div className="flex flex-col items-center gap-5 py-2">
-        <div className="relative flex size-20 items-center justify-center">
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 animate-pulse-ring rounded-full bg-brand/40"
-          />
-          <span className="relative flex size-20 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-[0_12px_40px_-10px_var(--brand-glow)]">
-            <Mic className="size-8" aria-hidden="true" />
-          </span>
+      <div className="flex flex-col gap-4">
+        <p className="rounded-xl border bg-field/60 p-3 text-[13.5px] leading-relaxed text-muted-foreground">
+          Meet the new dashboard: everything your team needs, in one calm place.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <Tag>Marin</Tag>
+          <Tag>Cheerful</Tag>
+          <Tag>1.0× speed</Tag>
+          <Tag>MP3</Tag>
         </div>
-        <Waveform
-          seed="clone-showcase"
-          bars={40}
-          progress={0.62}
-          className="h-10 w-full"
-        />
-        <div className="w-full">
-          <div className="mb-2 flex justify-between text-[12px]">
-            <span className="text-muted-foreground">Sample quality</span>
-            <span className="font-mono text-ink-3">0:38 / 1:00</span>
-          </div>
-          <div
-            role="progressbar"
-            aria-label="Recording progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={62}
-            className="h-1.5 overflow-hidden rounded-full bg-field"
-          >
-            <div className="h-full w-[62%] rounded-full bg-brand" />
-          </div>
+        <div className="flex items-center gap-3 rounded-xl border bg-field/60 px-3 py-2.5">
+          <Waveform
+            seed="speech-showcase"
+            bars={40}
+            progress={0.4}
+            className="h-8 flex-1"
+          />
         </div>
       </div>
     </MockCard>
@@ -122,7 +93,6 @@ function AgentMock() {
             className="h-6 flex-1"
             barClassName="bg-teal"
           />
-          <span className="font-mono text-[11.5px] text-ink-3">240ms</span>
         </div>
       </div>
     </MockCard>
@@ -131,38 +101,38 @@ function AgentMock() {
 
 const SHOWCASES = [
   {
-    overline: 'Speech to text',
-    title: 'Transcripts that read like a script',
+    overline: 'Text to speech',
+    title: 'Scripts that speak for themselves',
     description:
-      'Upload a recording and get a clean transcript with speakers, timestamps and the detected language, ready to edit or export.',
+      'Paste your text, pick a built-in voice and a speaking style, and get natural speech you can play, download and keep in your library.',
     points: [
-      'Speaker labels and word-level timestamps',
+      'Built-in voices with styles and speed control',
+      'MP3, WAV, Opus, AAC or FLAC output',
+      'See the credit cost before you generate',
+    ],
+    Mock: SpeechMock,
+  },
+  {
+    overline: 'Speech to text',
+    title: 'Transcripts in a few seconds',
+    description:
+      'Upload a recording and get a clean transcript with the languages that were spoken, ready to edit or export.',
+    points: [
       'Automatic language detection',
-      'Export to TXT, SRT or VTT',
+      'Edit the transcript in place',
+      'Export as TXT, SRT or VTT',
     ],
     Mock: TranscriptMock,
   },
   {
-    overline: 'Voice cloning',
-    title: 'Your voice, available on demand',
-    description:
-      'Record about a minute of clean audio and create a private voice you can use across text to speech and agents.',
-    points: [
-      'Guided recording with live quality checks',
-      'Consent verification built in',
-      'Private to your workspace',
-    ],
-    Mock: CloningMock,
-  },
-  {
     overline: 'Voice agents',
-    title: 'Conversations that feel instant',
+    title: 'Conversations that feel natural',
     description:
-      'Real-time agents listen, think and answer in a natural voice with latency low enough to feel like a person on the line.',
+      'Real-time agents listen and answer in a natural voice, following the instructions and knowledge you give them.',
     points: [
-      'Sub-300ms responses with interruptions',
-      'Custom instructions and knowledge',
-      'Transcripts of every conversation',
+      'Custom instructions, greeting and knowledge',
+      'Pick the voice each agent speaks with',
+      'Test by chat before you talk to it live',
     ],
     Mock: AgentMock,
   },

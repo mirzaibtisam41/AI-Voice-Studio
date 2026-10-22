@@ -10,12 +10,9 @@ import {
   Headphones,
   Library,
   Megaphone,
-  Mic,
   Podcast,
   Radio,
-  Sparkles,
   Boxes,
-  WandSparkles,
 } from 'lucide-react';
 
 export const NAV_LINKS = [
@@ -23,13 +20,6 @@ export const NAV_LINKS = [
   { label: 'Use cases', href: '#use-cases' },
   { label: 'Credits', href: '#credits' },
   { label: 'FAQ', href: '#faq' },
-];
-
-export const HERO_STATS = [
-  { value: '13', label: 'voices' },
-  { value: '50+', label: 'languages' },
-  { value: '<300ms', label: 'realtime latency' },
-  { value: '25 MB', label: 'uploads' },
 ];
 
 export const DEMO_VOICES = [
@@ -48,39 +38,26 @@ export const FEATURES = [
   {
     icon: AudioLines,
     title: 'Text to Speech',
-    description: 'Turn scripts into natural speech with 13 expressive voices.',
+    description:
+      'Turn scripts into natural speech with built-in voices, styles and speed control.',
   },
   {
     icon: FileText,
     title: 'Speech to Text',
-    description: 'Accurate transcripts with speakers, timestamps and language.',
-  },
-  {
-    icon: Mic,
-    title: 'Voice Cloning',
     description:
-      'Record a minute of audio and create a voice that sounds like you.',
-  },
-  {
-    icon: WandSparkles,
-    title: 'Voice Transformation',
-    description: 'Re-voice any recording while keeping its timing and emotion.',
+      'Upload a recording and get a clean transcript with the detected language.',
   },
   {
     icon: Radio,
     title: 'Real-Time Playground',
     description:
-      'Talk to the model live and tune voices with instant feedback.',
+      'Talk to the model live by voice and hear it answer instantly.',
   },
   {
     icon: Bot,
     title: 'AI Voice Agents',
-    description: 'Build agents that answer calls, guide users and take action.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Audio Enhancement',
-    description: 'Remove noise and echo and level loudness in one click.',
+    description:
+      'Build voice agents with their own instructions, voice and greeting.',
   },
   {
     icon: Library,
@@ -94,26 +71,8 @@ export const FEATURES = [
   },
 ];
 
-export const TRANSCRIPT_LINES = [
-  {
-    speaker: 'Maya',
-    time: '00:02',
-    text: 'Thanks for joining. Let’s walk through the launch plan.',
-    tone: 'text-brand',
-  },
-  {
-    speaker: 'Daniel',
-    time: '00:07',
-    text: 'Sure. The voiceovers are ready in English and Spanish.',
-    tone: 'text-teal',
-  },
-  {
-    speaker: 'Maya',
-    time: '00:13',
-    text: 'Great, let’s add French and German before Friday.',
-    tone: 'text-brand',
-  },
-];
+export const TRANSCRIPT_TEXT =
+  'Thanks for joining. Let’s walk through the launch plan. The voiceovers are ready in English and Spanish, and we’ll add French and German before Friday.';
 
 export const LANGUAGES = [
   'English',
@@ -136,22 +95,21 @@ export const STEPS = [
   {
     title: 'Write or upload',
     description:
-      'Paste a script, import a document or drop in an audio file up to 25 MB.',
+      'Paste a script for speech, or drop in an audio file to transcribe.',
   },
   {
     title: 'Pick a voice',
-    description:
-      'Choose from 13 built-in voices or your own clone, then set speed and style.',
+    description: 'Choose a built-in voice, then set the style and speed.',
   },
   {
     title: 'Generate and refine',
     description:
-      'Preview in seconds, adjust pronunciation and regenerate only what changed.',
+      'Listen in seconds and tweak the text or settings until it sounds right.',
   },
   {
     title: 'Export and share',
     description:
-      'Download MP3 or WAV, or share a link straight from your audio library.',
+      'Download MP3, WAV and more, or find it later in your audio library.',
   },
 ];
 
@@ -169,7 +127,7 @@ export const USE_CASES = [
   {
     icon: Headphones,
     title: 'Support teams',
-    description: 'Voice agents that resolve calls around the clock.',
+    description: 'Voice agents that answer questions around the clock.',
   },
   {
     icon: GraduationCap,
@@ -184,7 +142,7 @@ export const USE_CASES = [
   {
     icon: Podcast,
     title: 'Podcasters',
-    description: 'Transcripts, show notes and clean audio.',
+    description: 'Transcripts of every episode, ready to edit.',
   },
   {
     icon: Gamepad2,
@@ -208,7 +166,7 @@ export const TESTIMONIALS = [
   },
   {
     quote:
-      'Our support agent answers the phone in under a second and hands off cleanly. Call wait times dropped by half.',
+      'We set up a voice agent with our support playbook in an afternoon. Testing it in the browser felt like talking to a teammate.',
     name: 'Tomás Reyes',
     role: 'Support Lead, Brightlane',
     initials: 'TR',
@@ -226,7 +184,7 @@ export const FAQS = [
   {
     question: 'How do credits work?',
     answer:
-      'Every account gets 50 free credits at signup and every tool draws from that one balance. Text to speech costs 1 credit per 100 characters, transcription 1 credit per minute and real-time conversations 3 credits per minute. You always see the cost before you generate.',
+      'Every account gets free credits once at signup and every tool draws from that one balance. Each tool has its own rate, listed in the credits section above, and you always see the cost before you run anything.',
   },
   {
     question: 'Can I use the audio in my projects?',
@@ -236,22 +194,22 @@ export const FAQS = [
   {
     question: 'Which languages are supported?',
     answer:
-      'Speech generation and transcription support more than 50 languages, and transcription detects the spoken language automatically.',
+      'Speech generation and transcription work in many languages. Transcription returns the text of your recording along with the languages it detected.',
   },
   {
-    question: 'Do I need consent to clone a voice?',
+    question: 'Which AI models power the studio?',
     answer:
-      'Yes. You can only clone your own voice or a voice you have written permission to use. Every clone requires a recorded consent statement before it is created.',
+      'Speech, transcription, real-time conversations and voice agents run on OpenAI models. The exact model behind each tool is listed next to its rate in the credits section.',
   },
   {
     question: 'What happens to my data?',
     answer:
-      'Your uploads and generated audio are private to your workspace, encrypted at rest and never used to train models. You can delete any file at any time.',
+      'Your uploads and generated audio are private to your account. Text and audio are sent to OpenAI only to produce your results, and you can delete any file at any time.',
   },
   {
     question: 'Do I ever have to pay?',
     answer:
-      'No. There are no subscriptions, plans or card details. You get 50 credits once when you sign up, and that is all you need to try every tool.',
+      'No. There are no subscriptions, plans or card details. You get free credits once when you sign up, and that is all you need to try every tool.',
   },
 ];
 
@@ -289,7 +247,6 @@ export const FOOTER_COLUMNS = [
       { label: 'Terms of Service', href: '#' },
       { label: 'Privacy Policy', href: '#' },
       { label: 'Acceptable use', href: '#' },
-      { label: 'Voice consent', href: '#' },
     ],
   },
 ];

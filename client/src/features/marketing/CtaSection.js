@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SignupCreditsText } from '@/features/marketing/PlatformFacts';
 import { MarketingSection } from '@/features/marketing/SectionHeading';
 
 export function CtaSection() {
@@ -19,7 +20,10 @@ export function CtaSection() {
             Your next audio project starts in seconds.
           </h2>
           <p className="text-[15px] text-muted-foreground">
-            50 free credits, no card required.
+            <SignupCreditsText
+              template="{credits} free credits, no card required."
+              fallback="Free credits to start, no card required."
+            />
           </p>
           <Button asChild size="lg" className="mt-2">
             <Link href="/register">

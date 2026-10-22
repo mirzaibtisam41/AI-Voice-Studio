@@ -18,7 +18,7 @@ export function LanguagesSection() {
             id="languages-title"
             overline="Localization"
             title="One script. Every market."
-            description="Write once and generate natural speech in more than 50 languages, with transcription that detects the language automatically."
+            description="Write once and generate natural speech in many languages, with transcription that detects the spoken language automatically."
           />
           <ul className="mx-auto mt-10 flex max-w-3xl flex-wrap justify-center gap-2.5">
             {LANGUAGES.map((language) => (
@@ -30,9 +30,6 @@ export function LanguagesSection() {
                 {language}
               </li>
             ))}
-            <li className="inline-flex h-9 items-center rounded-full border border-dashed px-4 font-mono text-[12.5px] text-ink-3">
-              +36 more
-            </li>
           </ul>
         </div>
       </div>
