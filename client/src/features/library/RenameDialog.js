@@ -11,8 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/Spinner';
+import { LIBRARY_TITLE_MAX_LENGTH } from '@/features/library/libraryTypes';
 
-function RenameForm({ item, onRename, onCancel }) {
+function RenameForm({ item, onRename, onCancel, isSaving }) {
   const [title, setTitle] = useState(item.title);
   const trimmed = title.trim();
   const canSave = trimmed.length > 0 && trimmed !== item.title;
@@ -29,7 +31,7 @@ function RenameForm({ item, onRename, onCancel }) {
           id="library-rename"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          maxLength={80}
+          maxLength={LIBRARY_TITLE_MAX_LENGTH}
           autoFocus
         />
       </Field>
@@ -37,7 +39,8 @@ function RenameForm({ item, onRename, onCancel }) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!canSave}>
+        <Button type="submit" disabled={!canSave || isSaving}>
+          {isSaving ? <Spinner /> : null}
           Save name
         </Button>
       </DialogFooter>
@@ -45,7 +48,7 @@ function RenameForm({ item, onRename, onCancel }) {
   );
 }
 
-export function RenameDialog({ item, onRename, onOpenChange }) {
+export function RenameDialog({ item, onRename, onOpenChange, isSaving }) {
   return (
     <Dialog open={Boolean(item)} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -60,6 +63,7 @@ export function RenameDialog({ item, onRename, onOpenChange }) {
             key={item.id}
             item={item}
             onRename={onRename}
+            isSaving={isSaving}
             onCancel={() => onOpenChange(false)}
           />
         ) : null}

@@ -8,7 +8,7 @@ import {
   Play,
   Trash2,
 } from 'lucide-react';
-import { useMockPlayback } from '@/components/audio/playbackStore';
+import { usePlayback } from '@/components/audio/playbackStore';
 import { Waveform } from '@/components/audio/Waveform';
 import {
   DropdownMenu,
@@ -20,8 +20,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { FavoriteButton } from '@/features/library/FavoriteButton';
 import { LibraryTypeIcon } from '@/features/library/LibraryTypeIcon';
-import { getLibraryTypeMeta } from '@/features/library/libraryTypes';
-import { formatBytes, formatDuration } from '@/lib/format';
+import {
+  formatAudioDuration,
+  getLibraryTypeMeta,
+} from '@/features/library/libraryTypes';
+import { formatBytes, formatDate, formatDuration } from '@/lib/format';
 
 export function LibraryCard({
   item,
@@ -30,17 +33,22 @@ export function LibraryCard({
   onRename,
   onDelete,
 }) {
-  const { isPlaying, elapsed, progress, toggle } = useMockPlayback(
-    item.id,
-    item.durationSeconds,
-  );
+  const { isPlaying, elapsed, progress, error, toggle } = usePlayback(item.id, {
+    src: item.url,
+    durationSeconds: item.durationSeconds ?? 0,
+  });
   const PlayIcon = isPlaying ? Pause : Play;
-  const typeLabel = getLibraryTypeMeta(item.type).label;
+  const details = [
+    getLibraryTypeMeta(item.kind).label,
+    item.hasTranscript ? 'Transcribed' : null,
+    formatAudioDuration(item.durationSeconds),
+    formatBytes(item.sizeBytes),
+  ].filter(Boolean);
 
   return (
     <article className="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4">
       <div className="flex items-start justify-between gap-2">
-        <LibraryTypeIcon type={item.type} />
+        <LibraryTypeIcon type={item.kind} />
         <div className="-mt-1 -mr-1 flex items-center">
           <FavoriteButton
             favorite={item.favorite}
@@ -81,8 +89,10 @@ export function LibraryCard({
           {item.title}
         </h3>
         <p className="truncate font-mono text-[11.5px] text-ink-3">
-          {typeLabel} · {formatDuration(item.durationSeconds)} ·{' '}
-          {formatBytes(item.sizeBytes)}
+          {details.join(' · ')}
+        </p>
+        <p className="truncate font-mono text-[11.5px] text-ink-3">
+          {formatDate(item.createdAt)}
         </p>
       </div>
 
@@ -98,14 +108,21 @@ export function LibraryCard({
         </span>
         <Waveform
           seed={item.id}
-          bars={32}
+          bars={24}
           progress={progress}
           className="h-7 flex-1"
         />
         <span className="shrink-0 font-mono text-[11px] text-ink-3">
-          {formatDuration(elapsed > 0 ? elapsed : item.durationSeconds)}
+          {elapsed > 0
+            ? formatDuration(elapsed)
+            : formatAudioDuration(item.durationSeconds)}
         </span>
       </button>
+      {error ? (
+        <p role="alert" className="-mt-1 text-[12px] text-danger">
+          {error}
+        </p>
+      ) : null}
     </article>
   );
 }

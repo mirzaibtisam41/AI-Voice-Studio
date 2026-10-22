@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, Star } from 'lucide-react';
+import { Search, Star, Upload } from 'lucide-react';
 import { Chip } from '@/components/ui/ChoiceChips';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { LIBRARY_FILTERS, LIBRARY_SORTS } from '@/mocks/library';
+import {
+  LIBRARY_FILTERS,
+  LIBRARY_SORTS,
+} from '@/features/library/libraryTypes';
 
 export function LibraryToolbar({
   type,
@@ -23,6 +26,7 @@ export function LibraryToolbar({
   onSortChange,
   favoritesOnly,
   onFavoritesOnlyChange,
+  onUpload,
 }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -82,6 +86,10 @@ export function LibraryToolbar({
           onClick={() => onFavoritesOnlyChange(!favoritesOnly)}
         >
           <Star className={cn(favoritesOnly && 'fill-current')} />
+        </Button>
+        <Button className="h-10" onClick={onUpload}>
+          <Upload />
+          Upload
         </Button>
       </div>
     </div>
