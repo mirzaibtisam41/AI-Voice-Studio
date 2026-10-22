@@ -6,7 +6,10 @@ import {
   PermissionDeniedError,
   RateLimitError,
 } from 'openai';
-import { PROVIDER_ERROR_CATEGORY } from '#src/constants/index.js';
+import {
+  OPENAI_QUOTA_ERROR_CODES,
+  PROVIDER_ERROR_CATEGORY,
+} from '#src/constants/index.js';
 
 const SAFETY_ERROR_CODES = ['moderation_blocked', 'content_policy_violation'];
 
@@ -26,10 +29,16 @@ export function mapOpenAiErrorIntegration({ error }) {
     return PROVIDER_ERROR_CATEGORY.PROVIDER_AUTH_FAILED;
   }
 
+  if (
+    OPENAI_QUOTA_ERROR_CODES.includes(error?.code) ||
+    error?.type === 'insufficient_quota' ||
+    error?.error?.type === 'insufficient_quota'
+  ) {
+    return PROVIDER_ERROR_CATEGORY.QUOTA_EXCEEDED;
+  }
+
   if (error instanceof RateLimitError) {
-    return error.code === 'insufficient_quota'
-      ? PROVIDER_ERROR_CATEGORY.QUOTA_EXCEEDED
-      : PROVIDER_ERROR_CATEGORY.RATE_LIMITED;
+    return PROVIDER_ERROR_CATEGORY.RATE_LIMITED;
   }
 
   if (!(error instanceof APIError)) {

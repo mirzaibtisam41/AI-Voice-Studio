@@ -1,4 +1,7 @@
-import { PROVIDER_ERROR_CATEGORY } from '#src/constants/index.js';
+import {
+  OPENAI_QUOTA_ERROR_CODES,
+  PROVIDER_ERROR_CATEGORY,
+} from '#src/constants/index.js';
 
 const NETWORK_ERROR_CODES = [
   'ECONNREFUSED',
@@ -26,7 +29,10 @@ function mapHttpStatus(status) {
 }
 
 function mapErrorDetails({ code, type }) {
-  if (code === 'insufficient_quota') {
+  if (
+    OPENAI_QUOTA_ERROR_CODES.includes(code) ||
+    type === 'insufficient_quota'
+  ) {
     return PROVIDER_ERROR_CATEGORY.QUOTA_EXCEEDED;
   }
 
@@ -57,8 +63,20 @@ function mapErrorDetails({ code, type }) {
   return null;
 }
 
+function readDetailsFromMessage(message) {
+  const code = String(message ?? '').match(/\bcode=([\w.-]+)/)?.[1];
+  const type = String(message ?? '').match(/\btype=([\w.-]+)/)?.[1];
+
+  if (!code && !type) return null;
+
+  return {
+    code: code === 'null' ? null : code,
+    type: type === 'null' ? null : type,
+  };
+}
+
 export function mapRealtimeErrorIntegration({ error }) {
-  const details = error?.error;
+  const details = error?.error ?? readDetailsFromMessage(error?.message);
 
   if (details) {
     return mapErrorDetails(details) ?? PROVIDER_ERROR_CATEGORY.UNKNOWN;
