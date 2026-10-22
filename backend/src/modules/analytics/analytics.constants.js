@@ -1,0 +1,3 @@
+export const ANALYTICS_WEEKS = 8;
+export const ANALYTICS_RECENT_DAYS = 30;
+export const ANALYTICS_FAILED_JOBS_LIMIT = 5;
