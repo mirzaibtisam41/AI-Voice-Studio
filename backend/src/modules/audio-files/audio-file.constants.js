@@ -29,3 +29,21 @@ export const AUDIO_FORMAT_CONTENT_TYPE = {
 export const UPLOAD_FORMATS = ['mp3', 'wav', 'm4a', 'webm', 'ogg', 'flac'];
 
 export const AUDIO_FILE_TITLE_MAX_LENGTH = 150;
+
+export const AUDIO_STORAGE_FOLDER = {
+  GENERATED: 'generated',
+  UPLOADS: 'uploads',
+};
+
+export const AUDIO_FILE_SORT = {
+  NEWEST: 'newest',
+  OLDEST: 'oldest',
+  LONGEST: 'longest',
+  NAME: 'name',
+};
+
+export const AUDIO_FILE_SORTS = Object.values(AUDIO_FILE_SORT);
+
+export const AUDIO_FILE_SEARCH_MAX_LENGTH = 200;
+
+export const AUDIO_FILE_DEFAULT_UPLOAD_TITLE = 'Uploaded audio';
