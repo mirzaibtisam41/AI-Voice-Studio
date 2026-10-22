@@ -1,46 +1,58 @@
 'use client';
 
-import { useSelector } from 'react-redux';
 import { BarChart3, Gift, Mic, Wallet } from 'lucide-react';
 import { StatCard } from '@/components/ui/StatCard';
-import { SIGNUP_CREDITS } from '@/constants/pricing';
-import {
-  selectBalance,
-  selectTransactions,
-} from '@/features/credits/walletSlice';
-import { totalUsed } from '@/features/credits/walletUsage';
+import { StatValue } from '@/features/credits/StatValue';
+import { useGetPublicPlatformQuery } from '@/features/credits/creditsApi';
+import { useUsageSummary } from '@/features/credits/usage';
+import { useBalance } from '@/hooks/useBalance';
 
 export function CreditStats() {
-  const balance = useSelector(selectBalance);
-  const transactions = useSelector(selectTransactions);
-  const used = totalUsed(transactions);
-  const runs = transactions.filter(
-    (transaction) => transaction.amount < 0,
-  ).length;
+  const { balance, isLoading: balanceLoading } = useBalance();
+  const { data: usage, isLoading: usageLoading } = useUsageSummary(30);
+  const { data: platform, isLoading: platformLoading } =
+    useGetPublicPlatformQuery();
+  const failedRuns = usage?.totals.failedRuns ?? 0;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
         label="Current balance"
-        value={balance.toLocaleString()}
+        value={<StatValue value={balance} isLoading={balanceLoading} />}
         icon={Wallet}
         note="credits available"
       />
       <StatCard
         label="Credits used"
-        value={used.toLocaleString()}
+        value={
+          <StatValue
+            value={usage?.totals.creditsUsed}
+            isLoading={usageLoading}
+          />
+        }
         icon={BarChart3}
-        note={`of ${SIGNUP_CREDITS} free credits`}
+        note="last 30 days"
       />
       <StatCard
         label="Runs"
-        value={runs.toLocaleString()}
+        value={
+          <StatValue value={usage?.totals.runs} isLoading={usageLoading} />
+        }
         icon={Mic}
-        note="generations, transcriptions and sessions"
+        note={
+          failedRuns > 0
+            ? `last 30 days, ${failedRuns} failed and refunded`
+            : 'completed in the last 30 days'
+        }
       />
       <StatCard
         label="Signup bonus"
-        value={SIGNUP_CREDITS}
+        value={
+          <StatValue
+            value={platform?.settings.signupCredits}
+            isLoading={platformLoading}
+          />
+        }
         icon={Gift}
         note="free demo, no payments"
       />

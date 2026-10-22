@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useSelector } from 'react-redux';
-import { Download, ReceiptText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Chip } from '@/components/ui/ChoiceChips';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
+import { Spinner } from '@/components/ui/Spinner';
 import { Tag } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -17,64 +19,49 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { transactionFeature } from '@/features/credits/capabilities';
+import { useListWalletTransactionsQuery } from '@/features/credits/creditsApi';
+import { useTransactionsExport } from '@/features/credits/useTransactionsExport';
+import { getErrorMessage } from '@/lib/apiError';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { selectTransactions } from '@/features/credits/walletSlice';
-import { featureLabel } from '@/features/credits/walletUsage';
+
+const PAGE_SIZE = 10;
 
 const TRANSACTION_FILTERS = [
-  { value: 'all', label: 'All' },
+  { value: '', label: 'All' },
   { value: 'usage', label: 'Usage' },
+  { value: 'refunds', label: 'Refunds' },
   { value: 'credits', label: 'Credits added' },
+  { value: 'debits', label: 'Debits' },
 ];
-
-function filterTransactions(transactions, filter) {
-  if (filter === 'usage') {
-    return transactions.filter((transaction) => transaction.amount < 0);
-  }
-  if (filter === 'credits') {
-    return transactions.filter((transaction) => transaction.amount > 0);
-  }
-
-  return transactions;
-}
 
 function formatCredits(value) {
   return `${value > 0 ? '+' : '−'}${Math.abs(value).toLocaleString()}`;
 }
 
-function toCsv(transactions) {
-  const header = ['Date', 'Description', 'Feature', 'Credits', 'Balance after'];
-  const rows = transactions.map((transaction) => [
-    transaction.createdAt,
-    `"${transaction.description.replaceAll('"', '""')}"`,
-    featureLabel(transaction.feature),
-    transaction.amount,
-    transaction.balanceAfter,
-  ]);
-
-  return [header, ...rows].map((row) => row.join(',')).join('\n');
-}
-
-function downloadCsv(transactions) {
-  const blob = new Blob([toCsv(transactions)], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = 'ai-voice-studio-transactions.csv';
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export function TransactionHistory() {
-  const transactions = useSelector(selectTransactions);
-  const [filter, setFilter] = useState('all');
-  const visible = filterTransactions(transactions, filter);
+  const [type, setType] = useState('');
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isFetching, error } = useListWalletTransactionsQuery(
+    { page, limit: PAGE_SIZE, type },
+  );
+  const { exportCsv, isExporting } = useTransactionsExport();
+  const transactions = data?.transactions ?? [];
+  const totalPages = data?.meta.totalPages ?? 0;
 
-  const handleExport = () => {
-    downloadCsv(visible);
-    toast.success('Export started');
+  const changeType = (value) => {
+    setType(value);
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    try {
+      await exportCsv({ type });
+      toast.success('Export downloaded');
+    } catch (exportError) {
+      toast.error(exportError.message);
+    }
   };
 
   return (
@@ -86,8 +73,9 @@ export function TransactionHistory() {
           size="sm"
           className="shrink-0"
           onClick={handleExport}
+          disabled={isExporting}
         >
-          <Download />
+          {isExporting ? <Spinner /> : <Download />}
           Export CSV
         </Button>
       }
@@ -99,17 +87,28 @@ export function TransactionHistory() {
       >
         {TRANSACTION_FILTERS.map((option) => (
           <Chip
-            key={option.value}
-            selected={filter === option.value}
-            onClick={() => setFilter(option.value)}
+            key={option.value || 'all'}
+            selected={type === option.value}
+            onClick={() => changeType(option.value)}
           >
             {option.label}
           </Chip>
         ))}
       </div>
 
-      {visible.length > 0 ? (
-        <Table className="min-w-[680px]">
+      {error ? <FormAlert>{getErrorMessage(error)}</FormAlert> : null}
+
+      {isLoading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : transactions.length > 0 ? (
+        <Table
+          className={cn('min-w-170', isFetching && 'opacity-60')}
+          aria-busy={isFetching}
+        >
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Date</TableHead>
@@ -120,17 +119,17 @@ export function TransactionHistory() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((transaction) => (
+            {transactions.map((transaction) => (
               <TableRow key={transaction.id}>
                 <TableCell className="font-mono text-[12px] whitespace-nowrap text-muted-foreground">
                   {formatDateTime(transaction.createdAt)}
                 </TableCell>
                 <TableCell className="font-medium">
-                  {transaction.description}
+                  {transaction.reason || transactionFeature(transaction)}
                 </TableCell>
                 <TableCell>
                   <Tag className="whitespace-nowrap">
-                    {featureLabel(transaction.feature)}
+                    {transactionFeature(transaction)}
                   </Tag>
                 </TableCell>
                 <TableCell
@@ -148,13 +147,41 @@ export function TransactionHistory() {
             ))}
           </TableBody>
         </Table>
-      ) : (
+      ) : error ? null : (
         <EmptyState
           icon={ReceiptText}
           title="No transactions yet"
           description="Transactions of this type will show up here."
         />
       )}
+
+      {totalPages > 1 ? (
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-mono text-[12px] text-ink-3" aria-live="polite">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => current - 1)}
+              disabled={page <= 1 || isFetching}
+            >
+              <ChevronLeft />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => current + 1)}
+              disabled={page >= totalPages || isFetching}
+            >
+              Next
+              <ChevronRight />
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </Panel>
   );
 }
