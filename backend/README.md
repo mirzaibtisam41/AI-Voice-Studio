@@ -19,6 +19,7 @@ Fastify 5 + MongoDB (Mongoose) API for the AI Voice Studio client. Every paid AI
 | Script                             | What it does                                                                                                                         |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `npm run dev`                      | API with file watching on `PORT` (8000)                                                                                              |
+| `npm run dev:fake`                 | API with fake OpenAI and in-memory storage (no keys needed), seeded on start; for UI work and browser tests                          |
 | `npm test`                         | All tests against `TEST_MONGODB_URI` (default `mongodb://127.0.0.1:27018/ai_voice_studio_test?replicaSet=rs0&directConnection=true`) |
 | `npm run db:seed`                  | Seed settings, provider, models and voices                                                                                           |
 | `npm run admin:promote -- <email>` | Make a user an admin                                                                                                                 |
