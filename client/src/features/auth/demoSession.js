@@ -1,8 +1,9 @@
 const SESSION_KEY = 'avs-demo-session';
+const WALLET_KEY = 'avs-demo-wallet';
 
-export function readDemoSession() {
+function readJson(key) {
   try {
-    const saved = window.sessionStorage.getItem(SESSION_KEY);
+    const saved = window.sessionStorage.getItem(key);
 
     return saved ? JSON.parse(saved) : null;
   } catch {
@@ -10,20 +11,41 @@ export function readDemoSession() {
   }
 }
 
-export function saveDemoSession(user) {
+function writeJson(key, value) {
   try {
-    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    window.sessionStorage.setItem(key, JSON.stringify(value));
   } catch {
     return;
   }
 }
 
-export function clearDemoSession() {
+function remove(key) {
   try {
-    window.sessionStorage.removeItem(SESSION_KEY);
+    window.sessionStorage.removeItem(key);
   } catch {
     return;
   }
+}
+
+export function readDemoSession() {
+  return readJson(SESSION_KEY);
+}
+
+export function saveDemoSession(user) {
+  writeJson(SESSION_KEY, user);
+}
+
+export function readDemoWallet() {
+  return readJson(WALLET_KEY);
+}
+
+export function saveDemoWallet(wallet) {
+  writeJson(WALLET_KEY, wallet);
+}
+
+export function clearDemoSession() {
+  remove(SESSION_KEY);
+  remove(WALLET_KEY);
 }
 
 export function buildDemoUser({ name, email }) {
@@ -34,7 +56,6 @@ export function buildDemoUser({ name, email }) {
     name: name?.trim() || fallbackName,
     email: email.trim().toLowerCase(),
     role: 'admin',
-    plan: 'Pro',
-    joinedAt: '2025-11-02',
+    joinedAt: new Date().toISOString(),
   };
 }

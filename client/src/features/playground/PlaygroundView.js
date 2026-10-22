@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
 import { Spinner } from '@/components/ui/Spinner';
+import { CREDITS_PER_MINUTE } from '@/constants/pricing';
 import { creditsSpent } from '@/features/credits/walletSlice';
 import { ConnectionPanel } from '@/features/playground/ConnectionPanel';
 import {
   CONVERSATION_SCRIPT,
-  CREDITS_PER_MINUTE,
   DEFAULT_INSTRUCTIONS,
 } from '@/features/playground/conversationScript';
 import { LiveTranscript } from '@/features/playground/LiveTranscript';
@@ -177,10 +177,15 @@ export function PlaygroundView() {
     );
     const credits = Math.max(
       1,
-      Math.ceil((duration / 60) * CREDITS_PER_MINUTE),
+      Math.ceil((duration / 60) * CREDITS_PER_MINUTE.realtime),
     );
 
-    dispatch(creditsSpent(credits));
+    dispatch(
+      creditsSpent(credits, {
+        description: 'Real-time conversation',
+        feature: 'realtime',
+      }),
+    );
     setSessions((current) => [
       {
         id: `${startedAtRef.current}`,
@@ -286,7 +291,7 @@ export function PlaygroundView() {
               </span>
             ) : null}
             <span className="text-[12px] text-ink-3">
-              ≈ {CREDITS_PER_MINUTE} credits/min
+              ≈ {CREDITS_PER_MINUTE.realtime} credits/min
             </span>
           </div>
         </Panel>

@@ -22,6 +22,7 @@ import { SliderField } from '@/components/ui/SliderField';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { LANGUAGES } from '@/constants/languages';
+import { ttsCredits } from '@/constants/pricing';
 import { useCreditCharge } from '@/hooks/useCreditCharge';
 import {
   CHARACTER_LIMIT,
@@ -102,7 +103,7 @@ export function TextToSpeechView() {
 
   const characterCount = script.length;
   const isOverLimit = characterCount > CHARACTER_LIMIT;
-  const cost = characterCount;
+  const cost = ttsCredits(characterCount);
   const canGenerate = script.trim().length > 0 && !isOverLimit && !isGenerating;
   const [latestTake, ...olderTakes] = takes;
 
@@ -127,7 +128,10 @@ export function TextToSpeechView() {
     };
 
     window.setTimeout(() => {
-      charge(cost);
+      charge(cost, {
+        description: `Text to speech · ${findVoice(voiceId)?.name ?? voiceId}`,
+        feature: 'textToSpeech',
+      });
       setTakes((current) =>
         [{ id: `take-${Date.now()}`, ...settings }, ...current].slice(
           0,

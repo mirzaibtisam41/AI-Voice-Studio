@@ -29,12 +29,11 @@ import {
   MOCK_SEGMENTS,
 } from '@/features/speech-to-text/transcriptMock';
 import { LANGUAGES } from '@/constants/languages';
-import { creditsPerStartedMinute } from '@/lib/audioEstimates';
+import { CREDITS_PER_MINUTE, perMinuteCredits } from '@/constants/pricing';
 import { useCreditCharge } from '@/hooks/useCreditCharge';
 import { formatDuration } from '@/lib/format';
 
 const MAX_BYTES = 25 * 1024 * 1024;
-const CREDITS_PER_MINUTE = 5;
 const UPLOAD_DELAY_MS = 900;
 const TRANSCRIBE_DELAY_MS = 1300;
 const AUTO_DETECT = 'auto';
@@ -69,7 +68,7 @@ export function SpeechToTextView() {
   const isDone = status === 'done';
   const isWorking = status === 'uploading' || status === 'transcribing';
   const cost = file
-    ? creditsPerStartedMinute(MOCK_AUDIO_SECONDS, CREDITS_PER_MINUTE)
+    ? perMinuteCredits(MOCK_AUDIO_SECONDS, CREDITS_PER_MINUTE.speechToText)
     : 0;
   const detectedLanguage =
     language === AUTO_DETECT ? 'English (detected)' : language;
@@ -97,7 +96,10 @@ export function SpeechToTextView() {
       setStatus('transcribing');
 
       window.setTimeout(() => {
-        charge(cost);
+        charge(cost, {
+          description: `Transcription · ${file.name}`,
+          feature: 'speechToText',
+        });
         setStatus('done');
         toast.success('Transcript ready', {
           description: `${cost.toLocaleString()} credits used`,

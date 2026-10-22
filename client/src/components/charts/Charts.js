@@ -13,6 +13,8 @@ const CHART_HEIGHT = 200;
 
 function niceMax(values) {
   const highest = Math.max(1, ...values);
+
+  if (highest <= 4) return 4;
   const magnitude = 10 ** Math.floor(Math.log10(highest));
   const step = magnitude / 2;
 

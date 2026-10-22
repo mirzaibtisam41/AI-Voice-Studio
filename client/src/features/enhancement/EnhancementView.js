@@ -25,11 +25,11 @@ import {
   ENHANCEMENT_STATS,
   LOUDNESS_TARGETS,
 } from '@/features/enhancement/enhancementOptions';
-import { creditsPerStartedMinute, estimateSeconds } from '@/lib/audioEstimates';
+import { CREDITS_PER_MINUTE, perMinuteCredits } from '@/constants/pricing';
+import { estimateSeconds } from '@/lib/audioEstimates';
 import { BeforeAfterPlayers } from '@/features/voice-transformation/BeforeAfterPlayers';
 import { useCreditCharge } from '@/hooks/useCreditCharge';
 
-const CREDITS_PER_MINUTE = 6;
 const ENHANCE_DELAY_MS = 1800;
 
 const INITIAL_OPTIONS = Object.fromEntries(
@@ -82,7 +82,7 @@ export function EnhancementView() {
 
   const file = files[0];
   const seconds = estimateSeconds(file);
-  const cost = creditsPerStartedMinute(seconds, CREDITS_PER_MINUTE);
+  const cost = perMinuteCredits(seconds, CREDITS_PER_MINUTE.enhancement);
   const hasAnyOption = Object.values(options).some(Boolean);
 
   function changeFiles(nextFiles) {
@@ -103,7 +103,10 @@ export function EnhancementView() {
     setIsEnhancing(true);
 
     window.setTimeout(() => {
-      charge(cost);
+      charge(cost, {
+        description: `Audio enhancement · ${file.name}`,
+        feature: 'enhancement',
+      });
       setResult({
         id: `enhance-${Date.now()}`,
         loudnessLabel: options.loudness

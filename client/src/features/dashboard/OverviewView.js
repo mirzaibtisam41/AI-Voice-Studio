@@ -10,16 +10,20 @@ import { selectCurrentUser } from '@/features/auth/authSlice';
 import { QuickActions } from '@/features/dashboard/QuickActions';
 import { RecentProjects } from '@/features/dashboard/RecentProjects';
 import {
-  selectAutoReload,
   selectBalance,
+  selectTransactions,
 } from '@/features/credits/walletSlice';
-import { MONTHLY_USAGE, OVERVIEW_STATS } from '@/mocks/usage';
+import { countRuns, dailyUsage } from '@/features/credits/walletUsage';
+import { AGENTS } from '@/mocks/agents';
 
 export function OverviewView() {
   const user = useSelector(selectCurrentUser);
   const balance = useSelector(selectBalance);
-  const autoReload = useSelector(selectAutoReload);
+  const transactions = useSelector(selectTransactions);
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? '';
+  const daily = dailyUsage(transactions);
+  const liveAgents = AGENTS.filter((agent) => agent.status === 'live').length;
+  const draftAgents = AGENTS.filter((agent) => agent.status === 'draft').length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -37,25 +41,25 @@ export function OverviewView() {
           label="Credit balance"
           value={balance.toLocaleString()}
           icon={Wallet}
-          note={`auto-reload ${autoReload ? 'on' : 'off'}`}
+          note="free demo credits"
         />
         <StatCard
           label="Audio generated"
-          value={OVERVIEW_STATS.audioGenerated.toLocaleString()}
+          value={countRuns(transactions, 'textToSpeech')}
           icon={Mic}
-          trend="+12% this month"
+          note="text to speech takes"
         />
         <StatCard
-          label="Minutes transcribed"
-          value={OVERVIEW_STATS.minutesTranscribed.toLocaleString()}
+          label="Transcriptions"
+          value={countRuns(transactions, 'speechToText')}
           icon={FileText}
-          trend="+4% this month"
+          note="files transcribed"
         />
         <StatCard
           label="Active voice agents"
-          value={OVERVIEW_STATS.activeAgents}
+          value={liveAgents}
           icon={Bot}
-          note={`${OVERVIEW_STATS.draftAgents} in draft`}
+          note={`${draftAgents} in draft`}
         />
       </div>
 
@@ -63,16 +67,14 @@ export function OverviewView() {
         <Panel
           title="Credit usage"
           description="Credits spent across all features"
-          action={<Tag className="shrink-0">Last 7 months</Tag>}
+          action={<Tag className="shrink-0">Last 7 days</Tag>}
         >
           <LineChart
-            labels={MONTHLY_USAGE.labels}
-            series={[
-              { name: 'Credits', color: 'brand', values: MONTHLY_USAGE.values },
-            ]}
+            labels={daily.labels}
+            series={[{ name: 'Credits', color: 'brand', values: daily.values }]}
             area
             height={220}
-            label="Credits used per month, April to October"
+            label="Credits used per day, last 7 days"
           />
         </Panel>
         <RecentProjects />

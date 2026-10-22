@@ -39,5 +39,3 @@ export const DEFAULT_INSTRUCTIONS =
   'You are a friendly assistant for AI Voice Studio. Keep answers short.';
 
 export const REALTIME_MODEL = 'gpt-realtime-2.1-mini';
-
-export const CREDITS_PER_MINUTE = 20;

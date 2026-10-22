@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Download, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Chip } from '@/components/ui/ChoiceChips';
@@ -18,7 +19,25 @@ import {
 } from '@/components/ui/table';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { TRANSACTION_FILTERS, filterTransactions } from '@/mocks/transactions';
+import { selectTransactions } from '@/features/credits/walletSlice';
+import { featureLabel } from '@/features/credits/walletUsage';
+
+const TRANSACTION_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'usage', label: 'Usage' },
+  { value: 'credits', label: 'Credits added' },
+];
+
+function filterTransactions(transactions, filter) {
+  if (filter === 'usage') {
+    return transactions.filter((transaction) => transaction.amount < 0);
+  }
+  if (filter === 'credits') {
+    return transactions.filter((transaction) => transaction.amount > 0);
+  }
+
+  return transactions;
+}
 
 function formatCredits(value) {
   return `${value > 0 ? '+' : '−'}${Math.abs(value).toLocaleString()}`;
@@ -27,10 +46,10 @@ function formatCredits(value) {
 function toCsv(transactions) {
   const header = ['Date', 'Description', 'Feature', 'Credits', 'Balance after'];
   const rows = transactions.map((transaction) => [
-    transaction.date,
+    transaction.createdAt,
     `"${transaction.description.replaceAll('"', '""')}"`,
-    transaction.feature,
-    transaction.credits,
+    featureLabel(transaction.feature),
+    transaction.amount,
     transaction.balanceAfter,
   ]);
 
@@ -48,7 +67,8 @@ function downloadCsv(transactions) {
   URL.revokeObjectURL(url);
 }
 
-export function TransactionHistory({ transactions }) {
+export function TransactionHistory() {
+  const transactions = useSelector(selectTransactions);
   const [filter, setFilter] = useState('all');
   const visible = filterTransactions(transactions, filter);
 
@@ -103,21 +123,23 @@ export function TransactionHistory({ transactions }) {
             {visible.map((transaction) => (
               <TableRow key={transaction.id}>
                 <TableCell className="font-mono text-[12px] whitespace-nowrap text-muted-foreground">
-                  {formatDateTime(transaction.date)}
+                  {formatDateTime(transaction.createdAt)}
                 </TableCell>
                 <TableCell className="font-medium">
                   {transaction.description}
                 </TableCell>
                 <TableCell>
-                  <Tag className="whitespace-nowrap">{transaction.feature}</Tag>
+                  <Tag className="whitespace-nowrap">
+                    {featureLabel(transaction.feature)}
+                  </Tag>
                 </TableCell>
                 <TableCell
                   className={cn(
                     'text-right font-mono whitespace-nowrap',
-                    transaction.credits > 0 ? 'text-success' : 'text-danger',
+                    transaction.amount > 0 ? 'text-success' : 'text-danger',
                   )}
                 >
-                  {formatCredits(transaction.credits)}
+                  {formatCredits(transaction.amount)}
                 </TableCell>
                 <TableCell className="text-right font-mono whitespace-nowrap text-muted-foreground">
                   {transaction.balanceAfter.toLocaleString()}

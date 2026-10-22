@@ -13,12 +13,12 @@ import { Panel } from '@/components/ui/Panel';
 import { SliderField } from '@/components/ui/SliderField';
 import { Spinner } from '@/components/ui/Spinner';
 import { ToggleRow } from '@/components/ui/ToggleRow';
-import { creditsPerStartedMinute, estimateSeconds } from '@/lib/audioEstimates';
+import { CREDITS_PER_MINUTE, perMinuteCredits } from '@/constants/pricing';
+import { estimateSeconds } from '@/lib/audioEstimates';
 import { BeforeAfterPlayers } from '@/features/voice-transformation/BeforeAfterPlayers';
 import { useCreditCharge } from '@/hooks/useCreditCharge';
 import { ENABLED_VOICES, findVoice } from '@/mocks/voices';
 
-const CREDITS_PER_MINUTE = 8;
 const CONVERT_DELAY_MS = 1800;
 
 export function VoiceTransformationView() {
@@ -34,7 +34,10 @@ export function VoiceTransformationView() {
 
   const file = files[0];
   const seconds = estimateSeconds(file);
-  const cost = creditsPerStartedMinute(seconds, CREDITS_PER_MINUTE);
+  const cost = perMinuteCredits(
+    seconds,
+    CREDITS_PER_MINUTE.voiceTransformation,
+  );
   const sourceId = file ? `transform-source-${file.name}-${file.size}` : '';
 
   function changeFiles(nextFiles) {
@@ -57,7 +60,10 @@ export function VoiceTransformationView() {
     const voiceName = findVoice(voiceId)?.name ?? voiceId;
 
     window.setTimeout(() => {
-      charge(cost);
+      charge(cost, {
+        description: `Voice transformation · ${voiceName}`,
+        feature: 'voiceTransformation',
+      });
       setResult({ id: `transform-${Date.now()}`, voiceName });
       setIsConverting(false);
       toast.success(`Converted to ${voiceName}`, {

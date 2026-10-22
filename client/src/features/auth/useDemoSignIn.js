@@ -6,6 +6,7 @@ import { useDispatch } from 'react-redux';
 import { toast } from 'sonner';
 import { sessionStarted } from '@/features/auth/authSlice';
 import { buildDemoUser, saveDemoSession } from '@/features/auth/demoSession';
+import { walletStarted } from '@/features/credits/walletSlice';
 
 const SIGN_IN_DELAY_MS = 900;
 
@@ -24,6 +25,7 @@ export function useDemoSignIn() {
 
       saveDemoSession(user);
       router.replace('/app');
+      dispatch(walletStarted());
       dispatch(sessionStarted(user));
       toast.success(message);
     }, SIGN_IN_DELAY_MS);
