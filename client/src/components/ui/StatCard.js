@@ -14,9 +14,9 @@ export function StatCard({ label, value, icon: Icon, note, trend }) {
           </span>
         ) : null}
       </div>
-      <p className="truncate font-serif text-[28px] leading-none font-semibold tracking-tight">
+      <div className="truncate font-serif text-[28px] leading-none font-semibold tracking-tight">
         {value}
-      </p>
+      </div>
       {trend ? (
         <p
           className={cn(

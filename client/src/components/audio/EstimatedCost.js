@@ -6,7 +6,7 @@ export function EstimatedCost({ credits, label = 'Estimated cost' }) {
       <span className="text-[12.5px] text-muted-foreground">{label}</span>
       <span className="flex items-center gap-1 font-mono text-[14px] font-semibold text-brand">
         <Zap className="size-3.5" aria-hidden="true" />
-        {credits.toLocaleString()} credits
+        {credits.toLocaleString()} {credits === 1 ? 'credit' : 'credits'}
       </span>
     </div>
   );
