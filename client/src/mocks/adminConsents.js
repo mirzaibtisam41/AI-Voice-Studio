@@ -1,0 +1,71 @@
+export const CLONE_REQUESTS = [
+  {
+    id: 'cq_8821',
+    userName: 'Amelia Chen',
+    userEmail: 'amelia@northfield.media',
+    voiceName: 'Amelia narration',
+    samples: [
+      { id: 'cq_8821_s1', label: 'intro_read.wav', duration: 42 },
+      { id: 'cq_8821_s2', label: 'chapter_sample.wav', duration: 68 },
+      { id: 'cq_8821_s3', label: 'calm_read.wav', duration: 31 },
+    ],
+    consentConfirmed: true,
+    consentStatement:
+      'I am the person in these recordings and I consent to creating a synthetic version of my voice.',
+    submittedAt: '2026-10-22T08:12:00',
+    status: 'pending',
+  },
+  {
+    id: 'cq_8819',
+    userName: 'Hannah Okafor',
+    userEmail: 'hannah@brightdesk.support',
+    voiceName: 'Brightdesk support voice',
+    samples: [
+      { id: 'cq_8819_s1', label: 'greeting.wav', duration: 18 },
+      { id: 'cq_8819_s2', label: 'faq_answers.wav', duration: 94 },
+    ],
+    consentConfirmed: true,
+    consentStatement:
+      'Voice talent Jordan Ellis signed a release on Oct 14, 2026 (attached to the request).',
+    submittedAt: '2026-10-21T17:40:00',
+    status: 'pending',
+  },
+  {
+    id: 'cq_8816',
+    userName: 'Kenji Watanabe',
+    userEmail: 'kenji@tidewater.games',
+    voiceName: 'Captain Ryo',
+    samples: [{ id: 'cq_8816_s1', label: 'battle_lines.wav', duration: 26 }],
+    consentConfirmed: false,
+    consentStatement: 'Consent checkbox not confirmed by the uploader.',
+    submittedAt: '2026-10-21T13:05:00',
+    status: 'pending',
+  },
+  {
+    id: 'cq_8810',
+    userName: 'Ines Moreau',
+    userEmail: 'ines@studiomoreau.fr',
+    voiceName: 'Ines FR studio',
+    samples: [
+      { id: 'cq_8810_s1', label: 'lecture_fr.wav', duration: 55 },
+      { id: 'cq_8810_s2', label: 'promo_fr.wav', duration: 22 },
+    ],
+    consentConfirmed: true,
+    consentStatement:
+      'I am the person in these recordings and I consent to creating a synthetic version of my voice.',
+    submittedAt: '2026-10-19T10:22:00',
+    status: 'approved',
+  },
+  {
+    id: 'cq_8804',
+    userName: 'Dev Patel',
+    userEmail: 'dev.patel@quickcast.app',
+    voiceName: 'Celebrity impression',
+    samples: [{ id: 'cq_8804_s1', label: 'clip_from_tv.mp3', duration: 15 }],
+    consentConfirmed: false,
+    consentStatement: 'Consent checkbox not confirmed by the uploader.',
+    submittedAt: '2026-10-17T21:48:00',
+    status: 'rejected',
+    rejectionReason: 'Samples appear to be broadcast audio of a public figure.',
+  },
+];
