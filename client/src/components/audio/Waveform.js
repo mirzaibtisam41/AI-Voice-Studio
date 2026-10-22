@@ -42,7 +42,7 @@ export function Waveform({
             barClassName,
           )}
           style={{
-            height: `${height * 100}%`,
+            height: `${(height * 100).toFixed(2)}%`,
             animationDelay: animated ? `${(index % 12) * 70}ms` : undefined,
           }}
         />
