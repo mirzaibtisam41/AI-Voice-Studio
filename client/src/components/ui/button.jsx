@@ -12,8 +12,7 @@ const buttonVariants = cva(
           'bg-brand text-brand-foreground shadow-[0_8px_24px_-12px_var(--brand-glow)] hover:bg-brand-strong active:scale-[0.98]',
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40',
-        outline:
-          'border bg-field hover:bg-accent hover:text-accent-foreground',
+        outline: 'border bg-field hover:bg-accent hover:text-accent-foreground',
         secondary:
           'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost:
