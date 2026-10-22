@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/button';
@@ -14,21 +16,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   LANGUAGES,
   OUTPUT_FORMATS,
   THEME_OPTIONS,
-  readPreferences,
-  savePreferences,
 } from '@/features/settings/settingsOptions';
-import { useSimulatedAction } from '@/features/settings/useSimulatedAction';
+import {
+  useGetMySettingsQuery,
+  useGetSettingsVoiceOptionsQuery,
+  useUpdateMySettingsMutation,
+} from '@/features/settings/settingsApi';
+import { getErrorMessage } from '@/lib/apiError';
 import { applyTheme, readTheme } from '@/lib/theme';
-import { ENABLED_VOICES } from '@/mocks/voices';
 
-function SelectField({ id, label, value, onChange, options }) {
+const NO_VOICE = 'none';
+
+function SelectField({ id, label, value, onChange, options, disabled, hint }) {
   return (
-    <Field id={id} label={label}>
-      <Select value={value} onValueChange={onChange}>
+    <Field id={id} label={label} hint={hint}>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
@@ -44,34 +51,153 @@ function SelectField({ id, label, value, onChange, options }) {
   );
 }
 
-const VOICE_OPTIONS = ENABLED_VOICES.map((voice) => ({
-  value: voice.id,
-  label: `${voice.name} · ${voice.accent} ${voice.gender.toLowerCase()}, ${voice.style.toLowerCase()}`,
-}));
+function voiceLabel(voice) {
+  const details = [voice.accent, voice.gender].filter(Boolean).join(' ');
+  const tags = voice.tags?.length ? `, ${voice.tags.join(', ')}` : '';
 
-export function PreferenceSettings() {
-  const [saved, setSaved] = useState(readPreferences);
-  const [preferences, setPreferences] = useState(saved);
-  const [theme, setTheme] = useState(readTheme);
-  const { isRunning, run } = useSimulatedAction(800);
-  const isChanged = Object.keys(preferences).some(
-    (key) => preferences[key] !== saved[key],
-  );
+  return details ? `${voice.name} · ${details}${tags}` : voice.name;
+}
+
+function toForm(settings) {
+  return {
+    defaultVoiceCode: settings.defaultVoiceCode ?? NO_VOICE,
+    defaultFormat: settings.defaultFormat,
+    defaultLanguage: settings.defaultLanguage,
+  };
+}
+
+function StudioDefaultsForm({ settings }) {
+  const [saved, setSaved] = useState(() => toForm(settings));
+  const [form, setForm] = useState(saved);
+  const [error, setError] = useState('');
+  const { data: voices = [], isLoading: isLoadingVoices } =
+    useGetSettingsVoiceOptionsQuery();
+  const [updateSettings, { isLoading }] = useUpdateMySettingsMutation();
+  const isChanged = Object.keys(form).some((key) => form[key] !== saved[key]);
+
+  const voiceOptions = [
+    { value: NO_VOICE, label: 'No default' },
+    ...voices.map((voice) => ({ value: voice.code, label: voiceLabel(voice) })),
+  ];
+
+  if (
+    form.defaultVoiceCode !== NO_VOICE &&
+    !voices.some((voice) => voice.code === form.defaultVoiceCode)
+  ) {
+    voiceOptions.push({
+      value: form.defaultVoiceCode,
+      label: `${form.defaultVoiceCode} (not available)`,
+    });
+  }
+
+  const languageOptions = LANGUAGES.some(
+    (language) => language.value === form.defaultLanguage,
+  )
+    ? LANGUAGES
+    : [
+        ...LANGUAGES,
+        { value: form.defaultLanguage, label: form.defaultLanguage },
+      ];
 
   const update = (key) => (value) =>
-    setPreferences((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value }));
+
+  const handleSave = async () => {
+    setError('');
+
+    try {
+      const updated = await updateSettings({
+        defaultVoiceCode:
+          form.defaultVoiceCode === NO_VOICE ? null : form.defaultVoiceCode,
+        defaultFormat: form.defaultFormat,
+        defaultLanguage: form.defaultLanguage,
+      }).unwrap();
+      const next = toForm(updated);
+
+      setSaved(next);
+      setForm(next);
+      toast.success('Preferences saved');
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    }
+  };
+
+  return (
+    <>
+      <FormAlert>{error}</FormAlert>
+      <SelectField
+        id="pref-voice"
+        label="Default voice"
+        value={form.defaultVoiceCode}
+        onChange={update('defaultVoiceCode')}
+        options={voiceOptions}
+        disabled={isLoadingVoices}
+      />
+      <SelectField
+        id="pref-format"
+        label="Default output format"
+        value={form.defaultFormat}
+        onChange={update('defaultFormat')}
+        options={OUTPUT_FORMATS}
+      />
+      <SelectField
+        id="pref-language"
+        label="Default language"
+        value={form.defaultLanguage}
+        onChange={update('defaultLanguage')}
+        options={languageOptions}
+      />
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={!isChanged || isLoading}>
+          {isLoading ? <Spinner /> : null}
+          {isLoading ? 'Saving...' : 'Save preferences'}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function StudioDefaultsSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-label="Loading preferences">
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="flex flex-col gap-1.5">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PreferenceSettings() {
+  const { data: settings, isLoading, error, refetch } = useGetMySettingsQuery();
+  const [theme, setTheme] = useState(readTheme);
 
   const handleThemeChange = (value) => {
     setTheme(value);
     applyTheme(value);
   };
 
-  const handleSave = () =>
-    run(() => {
-      savePreferences(preferences);
-      setSaved(preferences);
-      toast.success('Preferences saved');
-    });
+  let defaults;
+
+  if (isLoading) {
+    defaults = <StudioDefaultsSkeleton />;
+  } else if (!settings) {
+    defaults = (
+      <EmptyState
+        title="Could not load your preferences"
+        description={getErrorMessage(error)}
+        action={
+          <Button variant="outline" size="sm" onClick={refetch}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  } else {
+    defaults = <StudioDefaultsForm settings={settings} />;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,36 +205,13 @@ export function PreferenceSettings() {
         title="Studio defaults"
         description="Used when you start a new generation."
       >
-        <SelectField
-          id="pref-voice"
-          label="Default voice"
-          value={preferences.voiceId}
-          onChange={update('voiceId')}
-          options={VOICE_OPTIONS}
-        />
-        <SelectField
-          id="pref-format"
-          label="Default output format"
-          value={preferences.outputFormat}
-          onChange={update('outputFormat')}
-          options={OUTPUT_FORMATS}
-        />
-        <SelectField
-          id="pref-language"
-          label="Default language"
-          value={preferences.language}
-          onChange={update('language')}
-          options={LANGUAGES}
-        />
-        <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={!isChanged || isRunning}>
-            {isRunning ? <Spinner /> : null}
-            {isRunning ? 'Saving...' : 'Save preferences'}
-          </Button>
-        </div>
+        {defaults}
       </Panel>
 
-      <Panel title="Appearance" description="Theme changes apply right away.">
+      <Panel
+        title="Appearance"
+        description="Theme changes apply right away on this device."
+      >
         <div className="flex flex-col gap-2">
           <p className="text-[13px] font-medium">Theme</p>
           <ChoiceChips
