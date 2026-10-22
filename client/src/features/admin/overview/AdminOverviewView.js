@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, AudioWaveform, CircleDollarSign, Users } from 'lucide-react';
+import { Activity, AudioWaveform, Coins, Users } from 'lucide-react';
 import { HorizontalBars, LineChart } from '@/components/charts/Charts';
 import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/Panel';
@@ -79,19 +79,19 @@ export function AdminOverviewView() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Monthly active users"
-          value="8,412"
+          value="3,284"
           icon={Users}
-          trend="+6.2% MoM"
+          trend="+9.4% MoM"
         />
         <StatCard
-          label="Revenue (MTD)"
-          value="$184,920"
-          icon={CircleDollarSign}
-          trend="+11% MoM"
+          label="Credits used today"
+          value="18,640"
+          icon={Coins}
+          note="Avg. 3.5 credits per generation"
         />
         <StatCard
           label="Generations today"
-          value="42,118"
+          value="5,271"
           icon={AudioWaveform}
           note="Across all features"
         />

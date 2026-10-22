@@ -1,7 +1,7 @@
 'use client';
 
 import { UserAvatar } from '@/components/layout/UserAvatar';
-import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   Sheet,
   SheetContent,
@@ -45,7 +45,6 @@ export function UserDetailsSheet({ user, onOpenChange }) {
             </SheetHeader>
             <div className="flex flex-col gap-5 px-5 pb-6">
               <div className="flex flex-wrap items-center gap-2">
-                <Tag>{user.plan} plan</Tag>
                 <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                 <span className="text-[12px] text-ink-3">
                   Joined {formatDate(user.joinedAt)}

@@ -1,7 +1,9 @@
+import { SIGNUP_CREDITS } from '@/constants/pricing';
+
 export const PLATFORM_SETTINGS = {
   platformName: 'AI Voice Studio',
   supportEmail: 'support@aivoicestudio.app',
-  signupCredits: 10000,
+  signupCredits: SIGNUP_CREDITS,
   requireEmailVerification: true,
   maxTtsCharacters: 5000,
   maxUploadMb: 25,

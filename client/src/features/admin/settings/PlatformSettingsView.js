@@ -151,7 +151,7 @@ export function PlatformSettingsView() {
           />
         </Panel>
 
-        <Panel title="Limits" description="Applied to every plan.">
+        <Panel title="Limits" description="Applied to every account.">
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             <NumberField
               id="max-tts-characters"

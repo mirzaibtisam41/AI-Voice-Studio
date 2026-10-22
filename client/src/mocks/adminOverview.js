@@ -10,7 +10,7 @@ export const PLATFORM_REQUEST_WEEKS = [
 ];
 
 export const PLATFORM_REQUESTS = [
-  182000, 204000, 198000, 236000, 251000, 244000, 279000, 296000,
+  24600, 27300, 26800, 31200, 33500, 32900, 36400, 38900,
 ];
 
 export const FEATURE_USAGE = [
@@ -27,5 +27,5 @@ export const PROVIDER_STATUS = {
   lastChecked: '2 min ago',
   errorRate: '0.4%',
   p95Latency: '388ms',
-  requestsToday: '42,118',
+  requestsToday: '6,940',
 };

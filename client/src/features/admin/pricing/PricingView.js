@@ -15,18 +15,15 @@ import {
   simulateWork,
 } from '@/features/admin/shared/adminFormat';
 import { cn } from '@/lib/utils';
-import {
-  CREDIT_VALUE_USD,
-  PRICING_RULES,
-  SIGNUP_BONUS_CREDITS,
-} from '@/mocks/adminPricing';
+import { CREDIT_VALUE_USD, SIGNUP_CREDITS } from '@/constants/pricing';
+import { PRICING_RULES } from '@/mocks/adminPricing';
 
 const COLUMNS = [
   'Feature',
   'Unit',
   'Credits per unit',
   'Provider cost',
-  'Revenue per unit',
+  'Value per unit',
   'Margin',
 ];
 
@@ -36,7 +33,7 @@ function buildSnapshot() {
       PRICING_RULES.map((rule) => [rule.id, String(rule.credits)]),
     ),
     creditValue: String(CREDIT_VALUE_USD),
-    signupBonus: String(SIGNUP_BONUS_CREDITS),
+    signupBonus: String(SIGNUP_CREDITS),
   };
 }
 
@@ -48,10 +45,10 @@ function formatSmallUsd(value) {
 }
 
 function computeMargin(credits, creditValue, providerCost) {
-  const revenue = credits * creditValue;
-  if (!revenue) return null;
+  const value = credits * creditValue;
+  if (!value) return null;
 
-  return ((revenue - providerCost) / revenue) * 100;
+  return ((value - providerCost) / value) * 100;
 }
 
 function SettingCard({ icon: Icon, title, description, children }) {
@@ -131,7 +128,7 @@ export function PricingView() {
             <Input
               id="credit-value"
               type="number"
-              step="0.00001"
+              step="0.001"
               min="0"
               value={draft.creditValue}
               onChange={(event) =>
@@ -158,7 +155,7 @@ export function PricingView() {
               id="signup-bonus"
               type="number"
               min="0"
-              step="500"
+              step="5"
               value={draft.signupBonus}
               onChange={(event) =>
                 setDraft((current) => ({
@@ -231,8 +228,8 @@ export function PricingView() {
         })}
       </AdminTable>
       <p className="text-[12px] text-ink-3">
-        Margin = (credits × credit value − provider cost) ÷ revenue. Signup
-        bonus currently {formatCredits(Number(saved.signupBonus))} credits.
+        Margin = (value per unit − provider cost) ÷ value per unit. Signup bonus
+        currently {formatCredits(Number(saved.signupBonus))} credits.
       </p>
     </div>
   );

@@ -58,7 +58,7 @@ function advanceJobs(jobs) {
       return {
         ...job,
         status: 'completed',
-        credits: job.creditsHeld || 120,
+        credits: job.creditsHeld || 3,
         durationSec: 48,
       };
     }

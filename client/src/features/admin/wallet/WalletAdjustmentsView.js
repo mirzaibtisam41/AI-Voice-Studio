@@ -155,7 +155,7 @@ export function WalletAdjustmentsView() {
                 inputMode="numeric"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                placeholder="5000"
+                placeholder="25"
                 className="font-mono"
                 aria-invalid={overdraw || undefined}
               />

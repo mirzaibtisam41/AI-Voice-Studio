@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { UserAvatar } from '@/components/layout/UserAvatar';
-import { StatusBadge, Tag } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/features/admin/shared/ConfirmDialog';
@@ -26,12 +26,7 @@ import {
 import { AdjustCreditsDialog } from '@/features/admin/users/AdjustCreditsDialog';
 import { UserDetailsSheet } from '@/features/admin/users/UserDetailsSheet';
 import { formatDate } from '@/lib/format';
-import { ADMIN_PLANS, ADMIN_USERS, USER_STATUSES } from '@/mocks/adminUsers';
-
-const PLAN_OPTIONS = [
-  { value: 'all', label: 'All plans' },
-  ...ADMIN_PLANS.map((plan) => ({ value: plan, label: plan })),
-];
+import { ADMIN_USERS, USER_STATUSES } from '@/mocks/adminUsers';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
@@ -43,7 +38,6 @@ const STATUS_OPTIONS = [
 
 const COLUMNS = [
   'User',
-  'Plan',
   'Credits',
   'Status',
   'Joined',
@@ -53,7 +47,6 @@ const COLUMNS = [
 export function UsersView() {
   const [users, setUsers] = useState(ADMIN_USERS);
   const [query, setQuery] = useState('');
-  const [plan, setPlan] = useState('all');
   const [status, setStatus] = useState('all');
   const [adjustingId, setAdjustingId] = useState(null);
   const [suspendingId, setSuspendingId] = useState(null);
@@ -62,7 +55,6 @@ export function UsersView() {
   const term = query.trim().toLowerCase();
   const filtered = users.filter(
     (user) =>
-      (plan === 'all' || user.plan === plan) &&
       (status === 'all' || user.status === status) &&
       `${user.name} ${user.email}`.toLowerCase().includes(term),
   );
@@ -115,13 +107,6 @@ export function UsersView() {
           placeholder="Search users..."
         />
         <FilterSelect
-          label="Filter by plan"
-          value={plan}
-          onChange={changeFilter(setPlan)}
-          options={PLAN_OPTIONS}
-          className="sm:w-36"
-        />
-        <FilterSelect
           label="Filter by status"
           value={status}
           onChange={changeFilter(setStatus)}
@@ -132,7 +117,7 @@ export function UsersView() {
 
       <AdminTable
         columns={COLUMNS}
-        tableClassName="min-w-[760px]"
+        tableClassName="min-w-[680px]"
         footer={<PaginationFooter pagination={pagination} />}
       >
         {pagination.pageItems.length ? (
@@ -158,9 +143,6 @@ export function UsersView() {
                       </span>
                     </span>
                   </button>
-                </AdminCell>
-                <AdminCell>
-                  <Tag>{user.plan}</Tag>
                 </AdminCell>
                 <AdminCell className="font-mono text-[12.5px]">
                   {formatCredits(user.credits)}
