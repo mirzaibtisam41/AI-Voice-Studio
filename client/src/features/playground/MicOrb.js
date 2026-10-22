@@ -9,6 +9,7 @@ const STATUS = {
   connecting: { tone: 'info', label: 'Connecting' },
   listening: { tone: 'success', label: 'Listening' },
   speaking: { tone: 'brand', label: 'Agent speaking' },
+  ending: { tone: 'info', label: 'Ending' },
   ended: { tone: 'neutral', label: 'Ended' },
 };
 
@@ -39,7 +40,8 @@ export function MicOrb({ phase, muted, orbRef, meterRef }) {
           ref={orbRef}
           className={cn(
             'relative flex size-[120px] items-center justify-center rounded-full bg-brand text-brand-foreground shadow-[0_18px_60px_-14px_var(--brand-glow)] transition-[transform,opacity] duration-100',
-            (phase === 'idle' || phase === 'ended') && 'opacity-90',
+            (phase === 'idle' || phase === 'ended' || phase === 'ending') &&
+              'opacity-90',
           )}
         >
           {phase === 'connecting' ? (

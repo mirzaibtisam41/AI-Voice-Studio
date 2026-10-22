@@ -1,12 +1,12 @@
 import { Panel } from '@/components/ui/Panel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { REALTIME_MODEL } from '@/features/playground/conversationScript';
 
 const CONNECTION_STATUS = {
   idle: { tone: 'neutral', label: 'Disconnected' },
   connecting: { tone: 'info', label: 'Connecting' },
   listening: { tone: 'success', label: 'Connected' },
   speaking: { tone: 'success', label: 'Connected' },
+  ending: { tone: 'info', label: 'Ending' },
   ended: { tone: 'neutral', label: 'Disconnected' },
 };
 
@@ -19,7 +19,7 @@ function ConnectionRow({ label, children }) {
   );
 }
 
-export function ConnectionPanel({ phase, latency }) {
+export function ConnectionPanel({ phase, model, roundTripMs }) {
   const status = CONNECTION_STATUS[phase];
   const isLive = phase === 'listening' || phase === 'speaking';
 
@@ -28,13 +28,13 @@ export function ConnectionPanel({ phase, latency }) {
       <dl className="flex flex-col divide-y">
         <ConnectionRow label="Protocol">WebRTC</ConnectionRow>
         <ConnectionRow label="Model">
-          <span className="font-mono text-[12.5px]">{REALTIME_MODEL}</span>
+          <span className="font-mono text-[12.5px]">{model ?? '—'}</span>
         </ConnectionRow>
-        <ConnectionRow label="Avg latency">
-          <span className="font-mono text-[12.5px]">
-            {isLive && latency ? `${latency} ms` : '—'}
-          </span>
-        </ConnectionRow>
+        {isLive && roundTripMs !== null ? (
+          <ConnectionRow label="Network round trip">
+            <span className="font-mono text-[12.5px]">{roundTripMs} ms</span>
+          </ConnectionRow>
+        ) : null}
         <ConnectionRow label="Status">
           <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
         </ConnectionRow>

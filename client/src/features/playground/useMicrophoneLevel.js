@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 function createResources() {
   return { stream: null, context: null, frame: 0, muted: false };
@@ -16,12 +16,6 @@ function measureLevel(analyser, samples) {
   }
 
   return Math.min(1, Math.sqrt(sum / samples.length) * 4);
-}
-
-function syntheticLevel() {
-  const wave = Math.abs(Math.sin(performance.now() / 280));
-
-  return 0.15 + wave * (0.25 + Math.random() * 0.3);
 }
 
 export function useMicrophoneLevel(orbRef, meterRef) {
@@ -83,7 +77,7 @@ export function useMicrophoneLevel(orbRef, meterRef) {
         : (window.AudioContext ?? window.webkitAudioContext);
 
     if (!navigator.mediaDevices?.getUserMedia || !AudioContextClass) {
-      return false;
+      return null;
     }
 
     let stream;
@@ -91,12 +85,12 @@ export function useMicrophoneLevel(orbRef, meterRef) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      return false;
+      return null;
     }
 
     if (attempt !== attemptRef.current) {
       stream.getTracks().forEach((track) => track.stop());
-      return false;
+      return null;
     }
 
     const context = new AudioContextClass();
@@ -108,12 +102,7 @@ export function useMicrophoneLevel(orbRef, meterRef) {
     resourcesRef.current = { stream, context, frame: 0, muted: false };
     runLoop(() => measureLevel(analyser, samples));
 
-    return true;
-  }, [runLoop, stop]);
-
-  const startDemo = useCallback(() => {
-    stop();
-    runLoop(syntheticLevel);
+    return stream;
   }, [runLoop, stop]);
 
   const setMuted = useCallback((muted) => {
@@ -129,5 +118,8 @@ export function useMicrophoneLevel(orbRef, meterRef) {
 
   useEffect(() => stop, [stop]);
 
-  return { startMicrophone, startDemo, stop, setMuted };
+  return useMemo(
+    () => ({ startMicrophone, stop, setMuted }),
+    [startMicrophone, stop, setMuted],
+  );
 }

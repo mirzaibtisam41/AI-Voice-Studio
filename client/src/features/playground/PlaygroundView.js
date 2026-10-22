@@ -1,223 +1,112 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { Mic, MicOff, PhoneOff, Play } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Mic, MicOff, PhoneOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FormAlert } from '@/components/ui/FormAlert';
 import { Panel } from '@/components/ui/Panel';
 import { Spinner } from '@/components/ui/Spinner';
-import { CREDITS_PER_MINUTE } from '@/constants/pricing';
-import { creditsSpent } from '@/features/credits/walletSlice';
+import { getErrorMessage } from '@/lib/apiError';
+import { formatDuration } from '@/lib/format';
+import { useGetAgentQuery } from '@/features/agents/agentsApi';
 import { ConnectionPanel } from '@/features/playground/ConnectionPanel';
-import {
-  CONVERSATION_SCRIPT,
-  DEFAULT_INSTRUCTIONS,
-} from '@/features/playground/conversationScript';
 import { LiveTranscript } from '@/features/playground/LiveTranscript';
 import { MicOrb } from '@/features/playground/MicOrb';
+import { useGetRealtimeOptionsQuery } from '@/features/playground/realtimeApi';
 import { SessionHistory } from '@/features/playground/SessionHistory';
 import { SessionSettings } from '@/features/playground/SessionSettings';
-import { useMicrophoneLevel } from '@/features/playground/useMicrophoneLevel';
-import { formatDuration } from '@/lib/format';
-import { findVoice } from '@/mocks/voices';
+import { useRealtimeSession } from '@/features/playground/useRealtimeSession';
 
-const TURN_GAP_MS = 2500;
-const TYPING_STEP_MS = 35;
+function SessionSummary({ result }) {
+  if (!result) return null;
 
-function randomLatency() {
-  return 120 + Math.round(Math.random() * 60);
+  return (
+    <FormAlert tone="success">
+      Conversation ended after{' '}
+      {formatDuration(result.session.durationSeconds ?? 0)}.{' '}
+      {result.creditsCharged} credits charged
+      {result.creditsRefunded > 0
+        ? `, ${result.creditsRefunded} unused credits refunded`
+        : ''}
+      . Balance: {result.balance} credits.
+    </FormAlert>
+  );
 }
 
 export function PlaygroundView() {
-  const dispatch = useDispatch();
-  const orbRef = useRef(null);
-  const meterRef = useRef(null);
-  const connectTimerRef = useRef(null);
-  const startedAtRef = useRef(0);
-  const microphone = useMicrophoneLevel(orbRef, meterRef);
+  const searchParams = useSearchParams();
+  const agentId = searchParams.get('agentId');
+  const optionsQuery = useGetRealtimeOptionsQuery();
+  const agentQuery = useGetAgentQuery(agentId, { skip: !agentId });
+  const options = optionsQuery.data;
+  const agent = agentId ? agentQuery.data : null;
 
-  const [phase, setPhase] = useState('idle');
-  const [muted, setMuted] = useState(false);
-  const [micBlocked, setMicBlocked] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [latency, setLatency] = useState(null);
-  const [lines, setLines] = useState([]);
-  const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState({
-    voice: 'coral',
-    style: 'Balanced',
-    instructions: DEFAULT_INSTRUCTIONS,
+    voiceCode: null,
+    responseStyle: 'balanced',
+    instructions: '',
     captions: true,
   });
 
-  const isLive = phase === 'listening' || phase === 'speaking';
-  const isBusy = isLive || phase === 'connecting';
-  const voice = findVoice(settings.voice);
+  const {
+    orbRef,
+    meterRef,
+    audioRef,
+    start,
+    end,
+    toggleMute,
+    phase,
+    isLive,
+    muted,
+    micBlocked,
+    lines,
+    session,
+    remaining,
+    roundTripMs,
+    error,
+    notice,
+    result,
+  } = useRealtimeSession();
+  const isBusy = isLive || phase === 'connecting' || phase === 'ending';
+  const voiceCode = settings.voiceCode ?? options?.voices[0]?.code ?? null;
+  const activeVoiceCode = agent ? agent.voiceCode : voiceCode;
+  const voiceName =
+    options?.voices.find((voice) => voice.code === activeVoiceCode)?.name ??
+    activeVoiceCode;
+  const rate = agentId ? options?.rates.voiceAgent : options?.rates.realtime;
+  const defaultModel = (agentId ? options?.agentModels : options?.models)?.find(
+    (model) => model.isDefault,
+  );
+  const agentMissing = Boolean(agentId) && agentQuery.isError;
+  const canStart =
+    Boolean(options) &&
+    (agentId ? Boolean(agent) : Boolean(voiceCode)) &&
+    !agentMissing;
 
-  useEffect(() => () => clearTimeout(connectTimerRef.current), []);
-
-  useEffect(() => {
-    if (!isLive) return undefined;
-
-    const clock = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
-    }, 1000);
-    const latencyClock = setInterval(() => setLatency(randomLatency()), 3000);
-
-    return () => {
-      clearInterval(clock);
-      clearInterval(latencyClock);
-    };
-  }, [isLive]);
-
-  useEffect(() => {
-    if (!isLive) return undefined;
-
-    const timers = new Set();
-    let typingTimer = null;
-    const sessionId = startedAtRef.current;
-    const secondsSinceStart = () =>
-      Math.round((Date.now() - startedAtRef.current) / 1000);
-
-    const later = (callback, delay) => {
-      const timer = setTimeout(() => {
-        timers.delete(timer);
-        callback();
-      }, delay);
-      timers.add(timer);
-    };
-
-    const playTurn = (index) => {
-      const turn = CONVERSATION_SCRIPT[index];
-
-      if (!turn) return;
-
-      const id = `${sessionId}-${index}`;
-
-      if (turn.speaker === 'user') {
-        setLines((current) => [
-          ...current,
-          { id, ...turn, shown: turn.text.length, at: secondsSinceStart() },
-        ]);
-        later(() => playTurn(index + 1), TURN_GAP_MS);
-        return;
-      }
-
-      setPhase('speaking');
-      setLines((current) => [
-        ...current,
-        { id, ...turn, shown: 0, at: secondsSinceStart() },
-      ]);
-
-      let shown = 0;
-
-      typingTimer = setInterval(() => {
-        shown = Math.min(turn.text.length, shown + 2);
-        setLines((current) =>
-          current.map((line) => (line.id === id ? { ...line, shown } : line)),
-        );
-
-        if (shown >= turn.text.length) {
-          clearInterval(typingTimer);
-          typingTimer = null;
-          setPhase('listening');
-          later(() => playTurn(index + 1), TURN_GAP_MS);
-        }
-      }, TYPING_STEP_MS);
-    };
-
-    later(() => playTurn(0), 1500);
-
-    return () => {
-      timers.forEach((timer) => clearTimeout(timer));
-      clearInterval(typingTimer);
-    };
-  }, [isLive]);
-
-  const beginSession = (demo) => {
-    setMicBlocked(false);
-    setLines([]);
-    setMuted(false);
-    setElapsed(0);
-    setLatency(null);
-    setPhase('connecting');
-
-    clearTimeout(connectTimerRef.current);
-    connectTimerRef.current = setTimeout(() => {
-      startedAtRef.current = Date.now();
-      if (demo) microphone.startDemo();
-      setLatency(randomLatency());
-      setPhase('listening');
-    }, 1000);
-  };
-
-  const handleStart = async () => {
-    setMicBlocked(false);
-    setPhase('connecting');
-
-    const granted = await microphone.startMicrophone();
-
-    if (!granted) {
-      setPhase('idle');
-      setMicBlocked(true);
+  const handleStart = () => {
+    if (agentId) {
+      start({ agentId });
       return;
     }
 
-    beginSession(false);
-  };
+    const instructions = settings.instructions.trim();
 
-  const handleEnd = () => {
-    microphone.stop();
-
-    const duration = Math.max(
-      1,
-      Math.round((Date.now() - startedAtRef.current) / 1000),
-    );
-    const credits = Math.max(
-      1,
-      Math.ceil((duration / 60) * CREDITS_PER_MINUTE.realtime),
-    );
-
-    dispatch(
-      creditsSpent(credits, {
-        description: 'Real-time conversation',
-        feature: 'realtime',
-      }),
-    );
-    setSessions((current) => [
-      {
-        id: `${startedAtRef.current}`,
-        endedAt: Date.now(),
-        duration,
-        turns: lines.length,
-        credits,
-      },
-      ...current,
-    ]);
-    setLines((current) =>
-      current.map((line) => ({ ...line, shown: line.text.length })),
-    );
-    setElapsed(duration);
-    setMuted(false);
-    setPhase('ended');
-    toast.success('Conversation ended', {
-      description: `${formatDuration(duration)} · ${credits} credits used`,
+    start({
+      voiceCode,
+      responseStyle: settings.responseStyle,
+      ...(instructions ? { instructions } : {}),
     });
   };
 
-  const toggleMute = () => {
-    const next = !muted;
-
-    setMuted(next);
-    microphone.setMuted(next);
-  };
+  const styleLabel = agent ? agent.responseStyle : settings.responseStyle;
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="flex min-w-0 flex-col gap-4">
         <Panel className="items-center px-4 py-8 text-center sm:py-10">
+          <audio ref={audioRef} autoPlay className="hidden" />
           <MicOrb
             phase={phase}
             muted={muted}
@@ -225,34 +114,62 @@ export function PlaygroundView() {
             meterRef={meterRef}
           />
           <p className="text-[13px] text-muted-foreground">
-            Talking to <span className="text-foreground">{voice.name}</span>
-            {' · '}
-            {settings.style} replies
+            {agent ? (
+              <>
+                Talking to <span className="text-foreground">{agent.name}</span>
+                {' · '}
+                {voiceName} voice
+              </>
+            ) : (
+              <>
+                Talking to{' '}
+                <span className="text-foreground">{voiceName ?? '…'}</span>
+                {' · '}
+                {styleLabel} replies
+              </>
+            )}
           </p>
-          {micBlocked ? (
-            <div className="flex w-full max-w-md flex-col items-center gap-3 text-left">
+          <div className="flex w-full max-w-md flex-col gap-3 text-left empty:hidden">
+            {micBlocked ? (
               <FormAlert>
                 Microphone access is blocked. Allow it in your browser to talk
-                to the agent.
+                to the agent. No credits were used.
               </FormAlert>
-              <Button variant="outline" onClick={() => beginSession(true)}>
-                <Play aria-hidden="true" />
-                Continue in demo mode
-              </Button>
-            </div>
-          ) : null}
+            ) : null}
+            {notice ? <FormAlert>{notice}</FormAlert> : null}
+            {error ? (
+              <FormAlert>
+                {error.message}
+                {error.needsCredits ? (
+                  <>
+                    {' '}
+                    <Link href="/app/credits" className="underline">
+                      View credits
+                    </Link>
+                  </>
+                ) : null}
+              </FormAlert>
+            ) : null}
+            {agentMissing ? (
+              <FormAlert>{getErrorMessage(agentQuery.error)}</FormAlert>
+            ) : null}
+            {optionsQuery.isError ? (
+              <FormAlert>{getErrorMessage(optionsQuery.error)}</FormAlert>
+            ) : null}
+            {phase === 'ended' ? <SessionSummary result={result} /> : null}
+          </div>
           <div className="flex items-center gap-2">
-            {phase === 'connecting' ? (
+            {phase === 'connecting' || phase === 'ending' ? (
               <Button size="lg" disabled>
                 <Spinner />
-                Connecting…
+                {phase === 'connecting' ? 'Connecting…' : 'Ending…'}
               </Button>
             ) : isLive ? (
               <>
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={handleEnd}
+                  onClick={end}
                   className="border-danger/50 text-danger hover:bg-danger/10 hover:text-danger"
                 >
                   <PhoneOff aria-hidden="true" />
@@ -275,24 +192,31 @@ export function PlaygroundView() {
                 </Button>
               </>
             ) : (
-              <Button size="lg" onClick={handleStart}>
+              <Button size="lg" onClick={handleStart} disabled={!canStart}>
                 <Mic aria-hidden="true" />
                 Start conversation
               </Button>
             )}
           </div>
           <div className="flex flex-col items-center gap-0.5">
-            {isLive || phase === 'ended' ? (
+            {isLive && remaining !== null ? (
               <span
                 className="font-mono text-[15px] tabular-nums"
-                aria-label="Elapsed time"
+                aria-label="Time left"
               >
-                {formatDuration(elapsed)}
+                {formatDuration(remaining)} left
               </span>
             ) : null}
-            <span className="text-[12px] text-ink-3">
-              ≈ {CREDITS_PER_MINUTE.realtime} credits/min
-            </span>
+            {rate ? (
+              <span className="text-[12px] text-ink-3">
+                {rate} credits/min
+                {isLive && session
+                  ? ` · up to ${session.allowedMinutes} min this call`
+                  : options
+                    ? ` · up to ${options.maxMinutes} min per call`
+                    : ''}
+              </span>
+            ) : null}
           </div>
         </Panel>
         <LiveTranscript
@@ -303,12 +227,18 @@ export function PlaygroundView() {
       </div>
       <div className="flex min-w-0 flex-col gap-4">
         <SessionSettings
-          settings={settings}
+          options={options}
+          agent={agent}
+          settings={{ ...settings, voiceCode }}
           onChange={setSettings}
           disabled={isBusy}
         />
-        <ConnectionPanel phase={phase} latency={latency} />
-        <SessionHistory sessions={sessions} />
+        <ConnectionPanel
+          phase={phase}
+          model={session?.model ?? defaultModel?.providerModelId}
+          roundTripMs={roundTripMs}
+        />
+        <SessionHistory agentId={agentId} />
       </div>
     </div>
   );

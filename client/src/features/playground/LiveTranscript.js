@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 function TranscriptBubble({ line }) {
   const isAgent = line.speaker === 'agent';
-  const isTyping = isAgent && line.shown < line.text.length;
+  const isTyping = line.pending;
 
   return (
     <li
@@ -32,7 +32,7 @@ function TranscriptBubble({ line }) {
             : 'rounded-tr-md bg-brand-tint text-foreground',
         )}
       >
-        {line.text.slice(0, line.shown)}
+        {line.text || (isTyping ? '' : '…')}
         {isTyping ? (
           <span
             aria-hidden="true"
@@ -44,9 +44,22 @@ function TranscriptBubble({ line }) {
   );
 }
 
+export function TranscriptLines({ lines }) {
+  return (
+    <ol className="flex flex-col gap-3">
+      {lines.map((line) => (
+        <TranscriptBubble key={line.id} line={line} />
+      ))}
+    </ol>
+  );
+}
+
 export function LiveTranscript({ lines, captionsEnabled, isLive }) {
   const scrollRef = useRef(null);
-  const visibleLength = lines.reduce((total, line) => total + line.shown, 0);
+  const visibleLength = lines.reduce(
+    (total, line) => total + line.text.length,
+    0,
+  );
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -58,6 +71,7 @@ export function LiveTranscript({ lines, captionsEnabled, isLive }) {
 
   const copyTranscript = async () => {
     const text = lines
+      .filter((line) => line.text.trim())
       .map(
         (line) =>
           `[${formatDuration(line.at)}] ${line.speaker === 'agent' ? 'Agent' : 'You'}: ${line.text}`,
@@ -105,11 +119,7 @@ export function LiveTranscript({ lines, captionsEnabled, isLive }) {
           className="max-h-[360px] overflow-y-auto pr-1"
           aria-live="polite"
         >
-          <ol className="flex flex-col gap-3">
-            {lines.map((line) => (
-              <TranscriptBubble key={line.id} line={line} />
-            ))}
-          </ol>
+          <TranscriptLines lines={lines} />
         </div>
       )}
     </Panel>
