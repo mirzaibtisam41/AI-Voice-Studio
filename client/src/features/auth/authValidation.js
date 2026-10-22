@@ -34,3 +34,12 @@ export function nameError(value) {
 export function isStrongPassword(value) {
   return PASSWORD_RULES.every((rule) => rule.test(value));
 }
+
+export function newPasswordErrors({ password, confirm }) {
+  return {
+    password: isStrongPassword(password)
+      ? null
+      : 'Password does not meet the requirements',
+    confirm: confirm === password ? null : 'Passwords do not match',
+  };
+}

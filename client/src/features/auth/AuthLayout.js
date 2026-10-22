@@ -1,10 +1,17 @@
 'use client';
 
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { BrandMark, BrandName } from '@/components/layout/BrandMark';
 import { GuestGuard } from '@/components/layout/GuestGuard';
 import { cn } from '@/lib/utils';
+
+const SHOWCASE_TOOLS = [
+  'Text to Speech',
+  'Speech to Text',
+  'Real-time conversations',
+  'Voice agents',
+];
 
 function BrandLink({ className }) {
   return (
@@ -34,26 +41,38 @@ function ShowcasePanel() {
           Every voice your product will ever need.
         </h2>
         <p className="text-[15px] text-muted-foreground">
-          Text to speech, cloning, transcription and real-time agents — one
-          console, one credit balance.
+          Text to speech, transcription, real-time conversations and voice
+          agents — one console, one credit balance.
         </p>
-        <AudioPlayer
-          id="auth-sample"
-          label="sample voice"
-          duration={4}
-          className="mt-4 bg-card/70 backdrop-blur"
-        />
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {SHOWCASE_TOOLS.map((tool) => (
+            <li
+              key={tool}
+              className="inline-flex h-8 items-center rounded-full border bg-card/70 px-3.5 text-[12.5px] text-muted-foreground backdrop-blur"
+            >
+              {tool}
+            </li>
+          ))}
+        </ul>
       </div>
       <p className="relative text-[12.5px] text-ink-3">
-        Trusted by content, product and support teams worldwide.
+        A free demo studio powered by OpenAI models.
       </p>
     </aside>
   );
 }
 
-export function AuthLayout({ title, subtitle, footer, children }) {
+export function AuthLayout({
+  title,
+  subtitle,
+  footer,
+  guestOnly = true,
+  children,
+}) {
+  const Guard = guestOnly ? GuestGuard : Fragment;
+
   return (
-    <GuestGuard>
+    <Guard>
       <div className="grid min-h-dvh lg:grid-cols-2">
         <ShowcasePanel />
         <main className="flex flex-col px-4 py-8 sm:px-6">
@@ -76,7 +95,7 @@ export function AuthLayout({ title, subtitle, footer, children }) {
           </div>
         </main>
       </div>
-    </GuestGuard>
+    </Guard>
   );
 }
 

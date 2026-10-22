@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Mail, User, X } from 'lucide-react';
+import { Mail, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/Field';
 import { Spinner } from '@/components/ui/Spinner';
 import { AuthFooterLink, AuthLayout } from '@/features/auth/AuthLayout';
 import {
-  PASSWORD_RULES,
   emailError,
   isStrongPassword,
   nameError,
@@ -17,36 +16,8 @@ import { InputWithIcon } from '@/features/auth/InputWithIcon';
 import { PasswordInput } from '@/features/auth/PasswordInput';
 import { FormAlert } from '@/components/ui/FormAlert';
 import { useSignIn } from '@/features/auth/useSignIn';
-import { cn } from '@/lib/utils';
-
-function PasswordRules({ id, password }) {
-  return (
-    <ul
-      id={id}
-      aria-label="Password requirements"
-      className="flex flex-col gap-1"
-    >
-      {PASSWORD_RULES.map((rule) => {
-        const passed = rule.test(password);
-        const Icon = passed ? Check : X;
-
-        return (
-          <li
-            key={rule.id}
-            className={cn(
-              'flex items-center gap-2 text-[12.5px]',
-              passed ? 'text-success' : 'text-ink-3',
-            )}
-          >
-            <Icon className="size-3.5" strokeWidth={2.5} aria-hidden="true" />
-            {rule.label}
-            <span className="sr-only">{passed ? 'met' : 'not met'}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
+import { PasswordRules } from '@/features/auth/PasswordRules';
+import { usePublicPlatformQuery } from '@/features/marketing/platformApi';
 
 export function RegisterForm() {
   const [name, setName] = useState('');
@@ -55,6 +26,8 @@ export function RegisterForm() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [touched, setTouched] = useState({});
   const { isSubmitting, signIn, error } = useSignIn();
+  const { data: platform } = usePublicPlatformQuery();
+  const signupCredits = platform?.settings?.signupCredits;
 
   const errors = {
     name: nameError(name),
@@ -88,7 +61,11 @@ export function RegisterForm() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="50 free credits, no card required."
+      subtitle={
+        signupCredits
+          ? `${signupCredits} free credits, no card required.`
+          : 'Free credits to start, no card required.'
+      }
       footer={
         <>
           Already have an account?{' '}
