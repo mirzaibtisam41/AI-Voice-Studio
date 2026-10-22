@@ -9,6 +9,8 @@ import {
 } from '#src/hooks/index.js';
 import {
   AiModelModel,
+  AuthSessionModel,
+  CreditWalletModel,
   AiProviderModel,
   UserModel,
   VoiceModel,
@@ -150,6 +152,36 @@ export async function buildTestApp({ env = {}, audioDurationSeconds } = {}) {
     await UserModel.updateOne({ email }, { role: 'admin' });
 
     return { email, ...(await loginUser({ email })) };
+  }
+
+  async function createLoggedInUser({
+    role = 'user',
+    balance = 50,
+    email = makeEmail(),
+    name = 'Direct User',
+  } = {}) {
+    const user = await UserModel.create({
+      name,
+      email,
+      passwordHash: 'created-directly-in-tests',
+      role,
+    });
+    const familyId = randomUUID();
+
+    await CreditWalletModel.create({ userId: user._id, balance });
+    await AuthSessionModel.create({
+      userId: user._id,
+      familyId,
+      refreshTokenHash: randomUUID(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    const accessToken = app.jwt.sign({
+      sub: user._id.toString(),
+      fid: familyId,
+    });
+
+    return { user, email, accessToken, familyId };
   }
 
   async function seedCatalog() {
@@ -307,6 +339,7 @@ export async function buildTestApp({ env = {}, audioDurationSeconds } = {}) {
     loginUser,
     registerAndLogin,
     registerAndLoginAsAdmin,
+    createLoggedInUser,
     seedCatalog,
     uploadAudio,
     getBalance,

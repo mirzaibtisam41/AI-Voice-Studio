@@ -157,3 +157,27 @@ describe('foundation', () => {
     assert.equal(await balance(), 46);
   });
 });
+
+describe('test helpers', () => {
+  let testApp;
+
+  before(async () => {
+    testApp = await buildTestApp();
+  });
+
+  after(async () => {
+    await testApp.close();
+  });
+
+  it('creates a logged-in admin directly', async () => {
+    const { accessToken } = await testApp.createLoggedInUser({ role: 'admin' });
+
+    const response = await testApp.sendRequest({
+      method: 'GET',
+      url: '/api/test-admin/ping',
+      accessToken,
+    });
+
+    assert.equal(response.statusCode, 200);
+  });
+});
