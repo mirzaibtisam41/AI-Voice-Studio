@@ -1,7 +1,9 @@
+import { LandingPage } from '@/features/marketing/LandingPage';
+
+export const metadata = {
+  title: { absolute: 'AI Voice Studio — every voice your product needs' },
+};
+
 export default function HomePage() {
-  return (
-    <main className="flex min-h-dvh items-center justify-center">
-      <h1 className="font-serif text-4xl">AI Voice Studio</h1>
-    </main>
-  );
+  return <LandingPage />;
 }
