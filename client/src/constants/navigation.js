@@ -11,31 +11,21 @@ import {
   ListChecks,
   Mic,
   Radio,
-  Repeat,
   ScrollText,
   Server,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Users,
   Wallet,
-  Wand2,
 } from 'lucide-react';
 
 export const STUDIO_NAV = [
   { label: 'Overview', href: '/app', icon: LayoutGrid, exact: true },
   { label: 'Text to Speech', href: '/app/text-to-speech', icon: Mic },
   { label: 'Speech to Text', href: '/app/speech-to-text', icon: FileText },
-  { label: 'Voice Cloning', href: '/app/voice-cloning', icon: Sparkles },
-  {
-    label: 'Voice Transformation',
-    href: '/app/voice-transformation',
-    icon: Repeat,
-  },
   { label: 'Real-Time Playground', href: '/app/playground', icon: Radio },
   { label: 'AI Voice Agents', href: '/app/agents', icon: Bot },
-  { label: 'Audio Enhancement', href: '/app/enhancement', icon: Wand2 },
   { label: 'Audio Library', href: '/app/library', icon: Library },
   { label: 'Credits', href: '/app/credits', icon: Wallet },
   {
@@ -66,11 +56,6 @@ export const ADMIN_NAV = [
     label: 'Generation Monitoring',
     href: '/admin/generations',
     icon: AudioWaveform,
-  },
-  {
-    label: 'Clone Consent Review',
-    href: '/admin/clone-consents',
-    icon: ShieldCheck,
   },
   {
     label: 'Platform Settings',

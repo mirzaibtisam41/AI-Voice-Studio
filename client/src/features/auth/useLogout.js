@@ -1,19 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useDispatch } from 'react-redux';
-import { loggedOut } from '@/features/auth/authSlice';
-import { clearDemoSession } from '@/features/auth/demoSession';
-import { walletCleared } from '@/features/credits/walletSlice';
+import { useLogoutMutation } from '@/features/auth/authApi';
 
 export function useLogout() {
-  const dispatch = useDispatch();
   const router = useRouter();
+  const [logout] = useLogoutMutation();
 
-  return () => {
-    clearDemoSession();
-    dispatch(loggedOut());
-    dispatch(walletCleared());
+  return async () => {
+    await logout();
     router.replace('/login');
   };
 }

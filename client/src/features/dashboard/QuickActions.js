@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Bot, FileText, Mic, Sparkles } from 'lucide-react';
+import { ArrowRight, Bot, FileText, Mic, Radio } from 'lucide-react';
 import { Panel } from '@/components/ui/Panel';
 
 const QUICK_ACTIONS = [
@@ -16,10 +16,10 @@ const QUICK_ACTIONS = [
     icon: FileText,
   },
   {
-    title: 'Voice Cloning',
-    description: 'Create a custom voice from samples.',
-    href: '/app/voice-cloning',
-    icon: Sparkles,
+    title: 'Real-Time Playground',
+    description: 'Talk to the model live in your browser.',
+    href: '/app/playground',
+    icon: Radio,
   },
   {
     title: 'AI Voice Agents',

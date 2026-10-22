@@ -1,18 +1,18 @@
 'use client';
 
-import { useDispatch, useSelector } from 'react-redux';
-import { SIGNUP_CREDITS } from '@/constants/pricing';
-import { creditsSpent, selectBalance } from '@/features/credits/walletSlice';
+import { useDispatch } from 'react-redux';
+import { useBalance } from '@/hooks/useBalance';
+import { baseApi } from '@/store/baseApi';
 
 export function useCreditCharge() {
   const dispatch = useDispatch();
-  const balance = useSelector(selectBalance);
+  const { balance } = useBalance();
 
   return {
     balance,
     canAfford: (cost) => cost <= balance,
-    charge: (cost, details) => dispatch(creditsSpent(cost, details)),
+    charge: () => dispatch(baseApi.util.invalidateTags(['Wallet'])),
     shortfallMessage: (cost) =>
-      `This needs ${cost.toLocaleString()} credits but you have ${balance.toLocaleString()}. Every demo account starts with ${SIGNUP_CREDITS} credits.`,
+      `This needs ${cost.toLocaleString()} credits but you have ${balance.toLocaleString()}.`,
   };
 }

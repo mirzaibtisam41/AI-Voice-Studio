@@ -8,6 +8,7 @@ export const AUTH_STATUS = {
 
 const initialState = {
   status: AUTH_STATUS.CHECKING,
+  accessToken: null,
   user: null,
 };
 
@@ -17,13 +18,15 @@ const authSlice = createSlice({
   reducers: {
     sessionStarted(state, action) {
       state.status = AUTH_STATUS.LOGGED_IN;
-      state.user = action.payload;
+      state.accessToken = action.payload.accessToken;
+      state.user = action.payload.user;
     },
     userUpdated(state, action) {
       state.user = { ...state.user, ...action.payload };
     },
     loggedOut(state) {
       state.status = AUTH_STATUS.LOGGED_OUT;
+      state.accessToken = null;
       state.user = null;
     },
   },
@@ -34,4 +37,5 @@ export const { sessionStarted, userUpdated, loggedOut } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 
 export const selectAuthStatus = (state) => state.auth.status;
+export const selectAccessToken = (state) => state.auth.accessToken;
 export const selectCurrentUser = (state) => state.auth.user;

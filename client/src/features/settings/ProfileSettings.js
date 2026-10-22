@@ -11,7 +11,6 @@ import { Tag } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { selectCurrentUser, userUpdated } from '@/features/auth/authSlice';
-import { saveDemoSession } from '@/features/auth/demoSession';
 import { useSimulatedAction } from '@/features/settings/useSimulatedAction';
 import { formatDate } from '@/lib/format';
 
@@ -52,7 +51,6 @@ export function ProfileSettings() {
       const changes = { name: trimmedName, email: trimmedEmail };
 
       dispatch(userUpdated(changes));
-      saveDemoSession({ ...user, ...changes });
       setName(trimmedName);
       setEmail(trimmedEmail);
       toast.success('Profile updated');

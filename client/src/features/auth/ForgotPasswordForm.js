@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Mail, MailCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,8 +10,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import { AuthFooterLink, AuthLayout } from '@/features/auth/AuthLayout';
 import { emailError } from '@/features/auth/authValidation';
 import { InputWithIcon } from '@/features/auth/InputWithIcon';
-
-const SEND_DELAY_MS = 1000;
+import { useForgotPasswordMutation } from '@/features/auth/authApi';
+import { getErrorMessage } from '@/lib/apiError';
 
 function SentState({ email, isResending, onResend }) {
   return (
@@ -51,27 +51,35 @@ export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const [status, setStatus] = useState('idle');
-  const timerRef = useRef(null);
-
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const [forgotPassword] = useForgotPasswordMutation();
 
   const error = emailError(email);
   const visibleError = touched ? error : null;
 
-  const handleSubmit = (event) => {
+  const sendLink = async () => {
+    try {
+      await forgotPassword({ email: email.trim() }).unwrap();
+
+      return true;
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError));
+
+      return false;
+    }
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setTouched(true);
     if (error) return;
     setStatus('sending');
-    timerRef.current = setTimeout(() => setStatus('sent'), SEND_DELAY_MS);
+    setStatus((await sendLink()) ? 'sent' : 'idle');
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setStatus('resending');
-    timerRef.current = setTimeout(() => {
-      setStatus('sent');
-      toast.success('Reset link sent again');
-    }, SEND_DELAY_MS);
+    if (await sendLink()) toast.success('Reset link sent again');
+    setStatus('sent');
   };
 
   const isSent = status === 'sent' || status === 'resending';

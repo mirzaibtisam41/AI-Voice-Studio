@@ -17,7 +17,6 @@ import {
 const TITLES = {
   '/app/text-to-speech': 'Text to Speech Studio',
   '/app/speech-to-text': 'Speech to Text Studio',
-  '/app/voice-cloning': 'Voice Cloning Studio',
   '/admin/users': 'User Management',
   '/admin/models': 'AI Model Management',
 };

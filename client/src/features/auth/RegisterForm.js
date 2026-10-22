@@ -15,7 +15,8 @@ import {
 } from '@/features/auth/authValidation';
 import { InputWithIcon } from '@/features/auth/InputWithIcon';
 import { PasswordInput } from '@/features/auth/PasswordInput';
-import { useDemoSignIn } from '@/features/auth/useDemoSignIn';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { useSignIn } from '@/features/auth/useSignIn';
 import { cn } from '@/lib/utils';
 
 function PasswordRules({ id, password }) {
@@ -53,7 +54,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [touched, setTouched] = useState({});
-  const { isSubmitting, signIn } = useDemoSignIn();
+  const { isSubmitting, signIn, error } = useSignIn();
 
   const errors = {
     name: nameError(name),
@@ -75,7 +76,13 @@ export function RegisterForm() {
     event.preventDefault();
     setTouched({ name: true, email: true, password: true, terms: true });
     if (Object.values(errors).some(Boolean)) return;
-    signIn({ name, email, message: 'Welcome to AI Voice Studio' });
+    signIn({
+      name,
+      email,
+      password,
+      isNewAccount: true,
+      message: 'Welcome to AI Voice Studio',
+    });
   };
 
   return (
@@ -90,6 +97,7 @@ export function RegisterForm() {
       }
     >
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <FormAlert>{error}</FormAlert>
         <Field
           id="register-name"
           label="Full name"

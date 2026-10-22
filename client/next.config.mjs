@@ -16,13 +16,19 @@ const contentSecurityPolicy = [
   `script-src ${scriptSources}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
-  "media-src 'self' data: blob:",
+  ["media-src 'self' data: blob: https://*.r2.cloudflarestorage.com", apiUrl]
+    .filter(Boolean)
+    .join(' '),
   "font-src 'self' data:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
-  ["connect-src 'self'", apiUrl, !isProduction && 'ws: wss:']
+  [
+    "connect-src 'self' https://api.openai.com",
+    apiUrl,
+    !isProduction && 'ws: wss:',
+  ]
     .filter(Boolean)
     .join(' '),
 ].join('; ');

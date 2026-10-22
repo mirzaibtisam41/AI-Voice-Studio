@@ -10,13 +10,14 @@ import { AuthFooterLink, AuthLayout } from '@/features/auth/AuthLayout';
 import { emailError } from '@/features/auth/authValidation';
 import { InputWithIcon } from '@/features/auth/InputWithIcon';
 import { PasswordInput } from '@/features/auth/PasswordInput';
-import { useDemoSignIn } from '@/features/auth/useDemoSignIn';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { useSignIn } from '@/features/auth/useSignIn';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState({});
-  const { isSubmitting, signIn } = useDemoSignIn();
+  const { isSubmitting, signIn, error } = useSignIn();
 
   const errors = {
     email: emailError(email),
@@ -30,7 +31,7 @@ export function LoginForm() {
     event.preventDefault();
     setTouched({ email: true, password: true });
     if (errors.email || errors.password) return;
-    signIn({ email, message: 'Welcome back' });
+    signIn({ email, password, message: 'Welcome back' });
   };
 
   return (
@@ -45,6 +46,7 @@ export function LoginForm() {
       }
     >
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <FormAlert>{error}</FormAlert>
         <Field id="login-email" label="Email" error={visibleError('email')}>
           <InputWithIcon
             id="login-email"
@@ -96,9 +98,6 @@ export function LoginForm() {
           {isSubmitting ? <Spinner /> : null}
           {isSubmitting ? 'Logging in…' : 'Log in'}
         </Button>
-        <p className="text-center text-[12.5px] text-ink-3">
-          Demo mode — any valid email and password will work.
-        </p>
       </form>
     </AuthLayout>
   );

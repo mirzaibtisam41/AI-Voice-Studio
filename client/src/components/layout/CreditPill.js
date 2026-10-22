@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useSelector } from 'react-redux';
+
 import { Zap } from 'lucide-react';
-import { selectBalance } from '@/features/credits/walletSlice';
+import { useBalance } from '@/hooks/useBalance';
 
 export function CreditPill({ admin = false }) {
-  const balance = useSelector(selectBalance);
+  const { balance } = useBalance();
   const value = admin ? 0 : balance;
 
   return (
