@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "db:seed": "node scripts/seed.js",
     "admin:promote": "node scripts/promote-admin.js",
-    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\""
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "dev:fake": "node --watch scripts/start-dev-fake.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1155.0",
