@@ -4,15 +4,18 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Mic, RotateCcw, SendHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Input } from '@/components/ui/input';
 import { Panel } from '@/components/ui/Panel';
-import { findAgentReply } from '@/features/agents/agentReplies';
+import { getErrorMessage } from '@/lib/apiError';
 import { cn } from '@/lib/utils';
-
-const REPLY_DELAY_MS = 1000;
+import { useChatWithAgentMutation } from '@/features/agents/agentsApi';
+import { usePublicPlatformQuery } from '@/features/marketing/platformApi';
 
 function createGreeting(agent) {
-  return [{ id: 'greeting', role: 'agent', text: agent.greeting }];
+  return agent.greeting
+    ? [{ id: 'greeting', role: 'agent', text: agent.greeting }]
+    : [];
 }
 
 function TypingIndicator() {
@@ -36,18 +39,20 @@ function TypingIndicator() {
   );
 }
 
-function ChatWindow({ agent }) {
+function toApiMessages(messages) {
+  return messages.map((message) => ({
+    role: message.role === 'agent' ? 'assistant' : 'user',
+    content: message.text,
+  }));
+}
+
+function ChatWindow({ agent, maxMessages }) {
   const [messages, setMessages] = useState(() => createGreeting(agent));
   const [draft, setDraft] = useState('');
-  const [typing, setTyping] = useState(false);
+  const [error, setError] = useState(null);
+  const [chatWithAgent, { isLoading: typing }] = useChatWithAgentMutation();
   const scrollRef = useRef(null);
-  const timersRef = useRef([]);
-
-  useEffect(() => {
-    const timers = timersRef.current;
-
-    return () => timers.forEach((timer) => clearTimeout(timer));
-  }, []);
+  const isFull = maxMessages ? messages.length + 1 > maxMessages : false;
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -57,30 +62,39 @@ function ChatWindow({ agent }) {
     }
   }, [messages.length, typing]);
 
-  const sendMessage = (event) => {
+  const sendMessage = async (event) => {
     event.preventDefault();
     const text = draft.trim();
 
-    if (!text || typing) return;
+    if (!text || typing || isFull) return;
 
     const sentAt = Date.now();
+    const next = [...messages, { id: `user-${sentAt}`, role: 'user', text }];
 
-    setMessages((current) => [
-      ...current,
-      { id: `user-${sentAt}`, role: 'user', text },
-    ]);
+    setMessages(next);
     setDraft('');
-    setTyping(true);
+    setError(null);
 
-    timersRef.current.push(
-      setTimeout(() => {
-        setMessages((current) => [
-          ...current,
-          { id: `agent-${sentAt}`, role: 'agent', text: findAgentReply(text) },
-        ]);
-        setTyping(false);
-      }, REPLY_DELAY_MS),
-    );
+    try {
+      const data = await chatWithAgent({
+        id: agent.id,
+        messages: toApiMessages(next),
+      }).unwrap();
+
+      setMessages((current) => [
+        ...current,
+        { id: `agent-${sentAt}`, role: 'agent', text: data.reply },
+      ]);
+    } catch (chatError) {
+      setMessages((current) =>
+        current.filter((message) => message.id !== `user-${sentAt}`),
+      );
+      setDraft(text);
+      setError({
+        message: getErrorMessage(chatError),
+        needsCredits: chatError?.status === 402,
+      });
+    }
   };
 
   return (
@@ -109,6 +123,24 @@ function ChatWindow({ agent }) {
           {typing ? <TypingIndicator /> : null}
         </ol>
       </div>
+      {error ? (
+        <FormAlert>
+          {error.message}
+          {error.needsCredits ? (
+            <>
+              {' '}
+              <Link href="/app/credits" className="underline">
+                View credits
+              </Link>
+            </>
+          ) : null}
+        </FormAlert>
+      ) : null}
+      {isFull ? (
+        <p className="text-[12.5px] text-ink-3">
+          This test chat is full. Reset it to keep testing.
+        </p>
+      ) : null}
       <form onSubmit={sendMessage} className="flex items-center gap-2">
         <label htmlFor="agent-test-message" className="sr-only">
           Message
@@ -124,7 +156,7 @@ function ChatWindow({ agent }) {
           type="submit"
           size="icon-lg"
           aria-label="Send message"
-          disabled={!draft.trim() || typing}
+          disabled={!draft.trim() || typing || isFull}
         >
           <SendHorizontal aria-hidden="true" />
         </Button>
@@ -135,11 +167,20 @@ function ChatWindow({ agent }) {
 
 export function AgentTestChat({ agent }) {
   const [resetCount, setResetCount] = useState(0);
+  const { data: platform } = usePublicPlatformQuery();
+  const chatRate = platform?.rates.find(
+    (rate) => rate.capability === 'agent_chat',
+  )?.creditsPerUnit;
+  const maxMessages = platform?.settings.agentChatMaxMessages;
 
   return (
     <Panel
       title="Test agent"
-      description={`Chat with ${agent.name} to check its answers.`}
+      description={
+        chatRate
+          ? `Chat with ${agent.name} to check its answers · ${chatRate} ${chatRate === 1 ? 'credit' : 'credits'} per message.`
+          : `Chat with ${agent.name} to check its answers.`
+      }
       action={
         <div className="flex shrink-0 items-center gap-1.5">
           <Button
@@ -151,7 +192,7 @@ export function AgentTestChat({ agent }) {
             Reset
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/app/playground">
+            <Link href={`/app/playground?agentId=${agent.id}`}>
               <Mic aria-hidden="true" />
               Voice test
             </Link>
@@ -162,6 +203,7 @@ export function AgentTestChat({ agent }) {
       <ChatWindow
         key={`${agent.id}-${agent.greeting}-${resetCount}`}
         agent={agent}
+        maxMessages={maxMessages}
       />
     </Panel>
   );

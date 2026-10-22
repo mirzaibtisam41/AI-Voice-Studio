@@ -1,10 +1,14 @@
-import { CheckCircle, Clock, Pencil, Phone } from 'lucide-react';
+import { Clock, Coins, MessageSquare, Pencil, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/Panel';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/ui/StatCard';
 import { formatDuration } from '@/lib/format';
-import { AGENT_MODEL } from '@/mocks/agents';
-import { findVoice } from '@/mocks/voices';
+import {
+  AGENT_RESPONSE_STYLES,
+  findVoiceName,
+} from '@/features/agents/agentOptions';
+import { useGetAgentAnalyticsQuery } from '@/features/agents/agentsApi';
 
 function SetupRow({ label, children }) {
   return (
@@ -15,49 +19,77 @@ function SetupRow({ label, children }) {
   );
 }
 
-export function AgentStats({ agent, onEdit }) {
-  const voice = findVoice(agent.voice);
-  const hasSessions = agent.sessions > 0;
+function AnalyticsCards({ agentId, days }) {
+  const { data, isLoading } = useGetAgentAnalyticsQuery({ id: agentId, days });
+  const period = `Last ${days} days`;
+
+  if (isLoading || !data) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+        {[0, 1, 2, 3].map((item) => (
+          <Skeleton key={item} className="h-[118px] w-full rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+      <StatCard
+        label="Voice sessions"
+        value={data.sessions.toLocaleString('en-US')}
+        icon={Phone}
+        note={`${data.totalMinutes.toLocaleString('en-US')} min total · ${period}`}
+      />
+      <StatCard
+        label="Avg. duration"
+        value={
+          data.sessions > 0 ? formatDuration(data.avgDurationSeconds) : '—'
+        }
+        icon={Clock}
+        note="Per voice session"
+      />
+      <StatCard
+        label="Test chats"
+        value={data.chats.toLocaleString('en-US')}
+        icon={MessageSquare}
+        note={period}
+      />
+      <StatCard
+        label="Credits used"
+        value={data.creditsUsed.toLocaleString('en-US')}
+        icon={Coins}
+        note={period}
+      />
+    </div>
+  );
+}
+
+export function AgentStats({ agent, options, days, onEdit }) {
+  const model = options?.agentModels.find((item) => item.isDefault);
+  const style =
+    AGENT_RESPONSE_STYLES.find((item) => item.value === agent.responseStyle)
+      ?.label ?? agent.responseStyle;
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
-        <StatCard
-          label="Total sessions"
-          value={agent.sessions.toLocaleString('en-US')}
-          icon={Phone}
-          note="All time"
-        />
-        <StatCard
-          label="Avg. duration"
-          value={hasSessions ? formatDuration(agent.avgDuration) : '—'}
-          icon={Clock}
-          note="Minutes per session"
-        />
-        <StatCard
-          label="Resolved without handoff"
-          value={
-            hasSessions && agent.resolvedRate !== null
-              ? `${agent.resolvedRate}%`
-              : '—'
-          }
-          icon={CheckCircle}
-          trend={hasSessions ? agent.resolvedTrend : undefined}
-          note="No sessions yet"
-        />
-      </div>
+      <AnalyticsCards agentId={agent.id} days={days} />
       <Panel title="Agent setup">
         <dl className="flex flex-col divide-y">
           <SetupRow label="Voice">
-            {voice.name} — {voice.accent}
+            {findVoiceName(options?.voices, agent.voiceCode)}
           </SetupRow>
-          <SetupRow label="Model">
-            <span className="font-mono text-[12.5px]">{AGENT_MODEL}</span>
-          </SetupRow>
-          <SetupRow label="Response style">{agent.responseStyle}</SetupRow>
+          {model ? (
+            <SetupRow label="Voice model">
+              <span className="font-mono text-[12.5px]">
+                {model.providerModelId}
+              </span>
+            </SetupRow>
+          ) : null}
+          <SetupRow label="Response style">{style}</SetupRow>
           <SetupRow label="Tools">
             {agent.tools.length} {agent.tools.length === 1 ? 'tool' : 'tools'}{' '}
-            enabled
+            selected
           </SetupRow>
         </dl>
         <Button variant="outline" onClick={() => onEdit(agent)}>

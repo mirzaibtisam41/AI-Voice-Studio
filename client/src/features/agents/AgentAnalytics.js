@@ -1,40 +1,75 @@
-import { BarChart } from '@/components/charts/Charts';
-import { Panel } from '@/components/ui/Panel';
-import { Tag } from '@/components/ui/StatusBadge';
-import { WEEKDAYS } from '@/mocks/agents';
+'use client';
 
-export function AgentAnalytics({ agent }) {
-  const weekTotal = agent.weeklySessions.reduce((sum, value) => sum + value, 0);
+import { BarChart } from '@/components/charts/Charts';
+import { ChoiceChips } from '@/components/ui/ChoiceChips';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { Panel } from '@/components/ui/Panel';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getErrorMessage } from '@/lib/apiError';
+import { useGetAgentAnalyticsQuery } from '@/features/agents/agentsApi';
+
+const DAY_OPTIONS = [
+  { value: 7, label: '7 days' },
+  { value: 30, label: '30 days' },
+];
+
+function formatDay(date, days) {
+  const value = new Date(`${date}T00:00:00Z`);
+
+  if (days <= 7) {
+    return value.toLocaleDateString('en-US', {
+      weekday: 'short',
+      timeZone: 'UTC',
+    });
+  }
+
+  return `${value.getUTCMonth() + 1}/${value.getUTCDate()}`;
+}
+
+export function AgentAnalytics({ agent, days, onDaysChange }) {
+  const { data, isLoading, error } = useGetAgentAnalyticsQuery({
+    id: agent.id,
+    days,
+  });
+  const total = data ? data.sessions + data.chats : 0;
 
   return (
     <Panel
       title={`${agent.name} — analytics`}
-      description={`${weekTotal.toLocaleString('en-US')} sessions in the last 7 days`}
+      description={
+        data
+          ? `${data.sessions.toLocaleString('en-US')} voice sessions and ${data.chats.toLocaleString('en-US')} test chats in the last ${days} days`
+          : `Activity in the last ${days} days`
+      }
+      action={
+        <ChoiceChips
+          label="Period"
+          options={DAY_OPTIONS}
+          value={days}
+          onChange={onDaysChange}
+          className="shrink-0 flex-nowrap"
+        />
+      }
     >
-      <BarChart
-        labels={WEEKDAYS}
-        values={agent.weeklySessions}
-        color="teal"
-        label={`Sessions per day for ${agent.name}`}
-      />
-      <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:gap-3">
-        <span className="shrink-0 text-[12.5px] text-muted-foreground">
-          Top intents
-        </span>
-        {agent.intents.length > 0 ? (
-          <ul className="flex flex-wrap gap-1.5">
-            {agent.intents.map((intent) => (
-              <li key={intent}>
-                <Tag>{intent}</Tag>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-[12.5px] text-ink-3">
-            Not enough sessions yet.
-          </span>
-        )}
-      </div>
+      {isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : error ? (
+        <FormAlert>{getErrorMessage(error)}</FormAlert>
+      ) : data ? (
+        <>
+          <BarChart
+            labels={data.daily.map((row) => formatDay(row.date, days))}
+            values={data.daily.map((row) => row.sessions + row.chats)}
+            color="teal"
+            label={`Voice sessions and test chats per day for ${agent.name}`}
+          />
+          <p className="text-[12px] text-ink-3">
+            {total === 0
+              ? 'No activity in this period yet.'
+              : 'Bars show voice sessions plus test chats per day (UTC).'}
+          </p>
+        </>
+      ) : null}
     </Panel>
   );
 }

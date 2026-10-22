@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChoiceChips } from '@/components/ui/ChoiceChips';
 import { Field } from '@/components/ui/Field';
+import { FormAlert } from '@/components/ui/FormAlert';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -23,10 +24,12 @@ import {
 } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { AGENT_RESPONSE_STYLES, AGENT_TOOLS } from '@/mocks/agents';
-import { ENABLED_VOICES } from '@/mocks/voices';
-
-const SAVE_DELAY_MS = 900;
+import { getErrorMessage, readFieldErrors } from '@/lib/apiError';
+import {
+  AGENT_LIMITS,
+  AGENT_RESPONSE_STYLES,
+  AGENT_TOOLS,
+} from '@/features/agents/agentOptions';
 
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Draft' },
@@ -36,27 +39,27 @@ const STATUS_OPTIONS = [
 const EMPTY_FORM = {
   name: '',
   description: '',
-  voice: 'coral',
+  voiceCode: '',
   greeting: '',
   instructions: '',
-  responseStyle: 'Balanced',
+  responseStyle: 'balanced',
   tools: [],
   knowledge: '',
   status: 'draft',
 };
 
-function toForm(agent) {
-  if (!agent) return EMPTY_FORM;
+function toForm(agent, voices) {
+  if (!agent) return { ...EMPTY_FORM, voiceCode: voices[0]?.code ?? '' };
 
   return {
     name: agent.name,
-    description: agent.description,
-    voice: agent.voice,
-    greeting: agent.greeting,
+    description: agent.description ?? '',
+    voiceCode: agent.voiceCode,
+    greeting: agent.greeting ?? '',
     instructions: agent.instructions,
     responseStyle: agent.responseStyle,
     tools: agent.tools,
-    knowledge: agent.knowledge,
+    knowledge: agent.knowledge ?? '',
     status: agent.status,
   };
 }
@@ -67,7 +70,8 @@ function validate(form) {
   if (form.name.trim().length < 2) {
     errors.name = 'Give the agent a name of at least 2 characters.';
   }
-  if (form.instructions.trim().length < 20) {
+  if (!form.voiceCode) errors.voiceCode = 'Choose a voice.';
+  if (form.instructions.trim().length < AGENT_LIMITS.instructionsMin) {
     errors.instructions =
       'Write at least 20 characters so the agent knows how to behave.';
   }
@@ -75,17 +79,15 @@ function validate(form) {
   return errors;
 }
 
-function AgentForm({ agent, onSave, onCancel }) {
-  const [form, setForm] = useState(() => toForm(agent));
+function AgentForm({ agent, voices, onSave, onCancel }) {
+  const [form, setForm] = useState(() => toForm(agent, voices));
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
-  const saveTimerRef = useRef(null);
   const statusOptions =
     agent?.status === 'paused'
       ? [...STATUS_OPTIONS, { value: 'paused', label: 'Paused' }]
       : STATUS_OPTIONS;
-
-  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   const update = (key) => (value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -100,26 +102,30 @@ function AgentForm({ agent, onSave, onCancel }) {
     );
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const nextErrors = validate(form);
 
     setErrors(nextErrors);
+    setFormError('');
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
-    saveTimerRef.current = setTimeout(() => {
-      onSave({
+
+    try {
+      await onSave({
         ...form,
         name: form.name.trim(),
         description: form.description.trim(),
         instructions: form.instructions.trim(),
-        greeting:
-          form.greeting.trim() ||
-          `Hi! I'm ${form.name.trim()}. How can I help today?`,
+        greeting: form.greeting.trim(),
         knowledge: form.knowledge.trim(),
       });
-    }, SAVE_DELAY_MS);
+    } catch (error) {
+      setErrors(readFieldErrors(error));
+      setFormError(getErrorMessage(error));
+      setSaving(false);
+    }
   };
 
   return (
@@ -129,6 +135,7 @@ function AgentForm({ agent, onSave, onCancel }) {
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 sm:px-6">
+        <FormAlert>{formError}</FormAlert>
         <Field id="agent-name" label="Name" error={errors.name}>
           <Input
             id="agent-name"
@@ -137,27 +144,32 @@ function AgentForm({ agent, onSave, onCancel }) {
             placeholder="e.g. Support Concierge"
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? 'agent-name-error' : undefined}
-            maxLength={60}
+            maxLength={AGENT_LIMITS.name}
           />
         </Field>
-        <Field id="agent-description" label="Description">
+        <Field
+          id="agent-description"
+          label="Description"
+          error={errors.description}
+        >
           <Input
             id="agent-description"
             value={form.description}
             onChange={(event) => update('description')(event.target.value)}
             placeholder="What this agent helps with"
-            maxLength={120}
+            maxLength={AGENT_LIMITS.description}
           />
         </Field>
-        <Field id="agent-voice" label="Voice">
-          <Select value={form.voice} onValueChange={update('voice')}>
+        <Field id="agent-voice" label="Voice" error={errors.voiceCode}>
+          <Select value={form.voiceCode} onValueChange={update('voiceCode')}>
             <SelectTrigger id="agent-voice">
               <SelectValue placeholder="Choose a voice" />
             </SelectTrigger>
             <SelectContent>
-              {ENABLED_VOICES.map((voice) => (
-                <SelectItem key={voice.id} value={voice.id}>
-                  {voice.name} — {voice.accent}
+              {voices.map((voice) => (
+                <SelectItem key={voice.code} value={voice.code}>
+                  {voice.name}
+                  {voice.accent ? ` — ${voice.accent}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -166,7 +178,8 @@ function AgentForm({ agent, onSave, onCancel }) {
         <Field
           id="agent-greeting"
           label="Greeting message"
-          hint="The first thing the agent says."
+          error={errors.greeting}
+          hint="The first thing the agent says. Leave empty for a default greeting."
         >
           <Input
             id="agent-greeting"
@@ -174,7 +187,7 @@ function AgentForm({ agent, onSave, onCancel }) {
             onChange={(event) => update('greeting')(event.target.value)}
             placeholder="Hi! How can I help today?"
             aria-describedby="agent-greeting-hint"
-            maxLength={160}
+            maxLength={AGENT_LIMITS.greeting}
           />
         </Field>
         <Field
@@ -189,6 +202,7 @@ function AgentForm({ agent, onSave, onCancel }) {
             value={form.instructions}
             onChange={(event) => update('instructions')(event.target.value)}
             placeholder="You are a friendly support agent for..."
+            maxLength={AGENT_LIMITS.instructions}
             aria-invalid={Boolean(errors.instructions)}
             aria-describedby={
               errors.instructions
@@ -208,6 +222,9 @@ function AgentForm({ agent, onSave, onCancel }) {
         </fieldset>
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-medium">Tools</legend>
+          <p className="-mt-1 text-[12px] text-ink-3">
+            Saved with the agent for when tool actions are connected.
+          </p>
           <ul className="flex flex-col gap-2">
             {AGENT_TOOLS.map((tool) => {
               const checkboxId = `agent-tool-${tool.id}`;
@@ -248,6 +265,7 @@ function AgentForm({ agent, onSave, onCancel }) {
         <Field
           id="agent-knowledge"
           label="Knowledge notes"
+          error={errors.knowledge}
           hint="Facts the agent can use, like prices or opening hours."
         >
           <Textarea
@@ -255,6 +273,7 @@ function AgentForm({ agent, onSave, onCancel }) {
             rows={3}
             value={form.knowledge}
             onChange={(event) => update('knowledge')(event.target.value)}
+            maxLength={AGENT_LIMITS.knowledge}
             aria-describedby="agent-knowledge-hint"
           />
         </Field>
@@ -286,7 +305,7 @@ function AgentForm({ agent, onSave, onCancel }) {
   );
 }
 
-export function AgentFormSheet({ open, agent, onOpenChange, onSave }) {
+export function AgentFormSheet({ open, agent, voices, onOpenChange, onSave }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 sm:max-w-lg">
@@ -300,6 +319,7 @@ export function AgentFormSheet({ open, agent, onOpenChange, onSave }) {
           <AgentForm
             key={agent?.id ?? 'new'}
             agent={agent}
+            voices={voices}
             onSave={onSave}
             onCancel={() => onOpenChange(false)}
           />

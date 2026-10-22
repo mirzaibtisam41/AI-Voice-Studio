@@ -32,11 +32,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Panel } from '@/components/ui/Panel';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { cn } from '@/lib/utils';
-import { AGENT_STATUSES } from '@/mocks/agents';
-import { findVoice } from '@/mocks/voices';
+import { AGENT_STATUSES, findVoiceName } from '@/features/agents/agentOptions';
 
 function AgentRow({
   agent,
+  voices,
   selected,
   onSelect,
   onEdit,
@@ -45,7 +45,6 @@ function AgentRow({
   onRequestDelete,
 }) {
   const status = AGENT_STATUSES[agent.status];
-  const sessionsLabel = `${agent.sessions.toLocaleString('en-US')} ${agent.sessions === 1 ? 'session' : 'sessions'}`;
 
   return (
     <li
@@ -68,7 +67,8 @@ function AgentRow({
             {agent.name}
           </span>
           <span className="block truncate text-[12px] text-ink-3">
-            Voice: {findVoice(agent.voice).name} · {sessionsLabel}
+            Voice: {findVoiceName(voices, agent.voiceCode)}
+            {agent.description ? ` · ${agent.description}` : ''}
           </span>
         </span>
         <StatusBadge tone={status.tone} className="shrink-0">
@@ -123,6 +123,8 @@ function AgentRow({
 
 export function AgentList({
   agents,
+  voices,
+  canCreate,
   selectedId,
   onSelect,
   onCreate,
@@ -138,7 +140,12 @@ export function AgentList({
       title="Your agents"
       description="Voice agents that answer calls and chats for you."
       action={
-        <Button size="sm" onClick={onCreate} className="shrink-0">
+        <Button
+          size="sm"
+          onClick={onCreate}
+          disabled={!canCreate}
+          className="shrink-0"
+        >
           <Plus aria-hidden="true" />
           New agent
         </Button>
@@ -156,6 +163,7 @@ export function AgentList({
             <AgentRow
               key={agent.id}
               agent={agent}
+              voices={voices}
               selected={agent.id === selectedId}
               onSelect={onSelect}
               onEdit={onEdit}
@@ -175,8 +183,8 @@ export function AgentList({
         <AlertDialogContent>
           <AlertDialogTitle>Delete {pendingDelete?.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This agent stops answering right away and its test history is
-            removed. This cannot be undone.
+            The agent and its settings are removed. Past conversations stay in
+            your history. This cannot be undone.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

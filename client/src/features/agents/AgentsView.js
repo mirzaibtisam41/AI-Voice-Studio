@@ -2,30 +2,52 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { Panel } from '@/components/ui/Panel';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getErrorMessage } from '@/lib/apiError';
 import { AgentAnalytics } from '@/features/agents/AgentAnalytics';
 import { AgentFormSheet } from '@/features/agents/AgentFormSheet';
 import { AgentList } from '@/features/agents/AgentList';
 import { AgentStats } from '@/features/agents/AgentStats';
 import { AgentTestChat } from '@/features/agents/AgentTestChat';
-import { AGENTS } from '@/mocks/agents';
+import {
+  useCreateAgentMutation,
+  useDeleteAgentMutation,
+  useDuplicateAgentMutation,
+  useListAgentsQuery,
+  useUpdateAgentMutation,
+  useUpdateAgentStatusMutation,
+} from '@/features/agents/agentsApi';
+import { useGetRealtimeOptionsQuery } from '@/features/playground/realtimeApi';
 
-function freshStats() {
-  return {
-    sessions: 0,
-    weeklySessions: [0, 0, 0, 0, 0, 0, 0],
-    avgDuration: 0,
-    resolvedRate: null,
-    resolvedTrend: undefined,
-    intents: [],
-  };
+function LoadingAgents() {
+  return (
+    <Panel title="Your agents">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </Panel>
+  );
 }
 
 export function AgentsView() {
-  const [agents, setAgents] = useState(AGENTS);
-  const [selectedId, setSelectedId] = useState(AGENTS[0].id);
+  const agentsQuery = useListAgentsQuery();
+  const { data: options } = useGetRealtimeOptionsQuery();
+  const [createAgent] = useCreateAgentMutation();
+  const [updateAgent] = useUpdateAgentMutation();
+  const [updateAgentStatus] = useUpdateAgentStatusMutation();
+  const [duplicateAgent] = useDuplicateAgentMutation();
+  const [deleteAgent] = useDeleteAgentMutation();
+
+  const [selectedId, setSelectedId] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState(null);
+  const [days, setDays] = useState(7);
 
+  const agents = agentsQuery.data ?? [];
+  const voices = options?.voices ?? [];
   const selected =
     agents.find((agent) => agent.id === selectedId) ?? agents[0] ?? null;
 
@@ -39,22 +61,17 @@ export function AgentsView() {
     setSheetOpen(true);
   };
 
-  const saveAgent = (values) => {
+  const saveAgent = async (values) => {
     if (editingAgent) {
-      setAgents((current) =>
-        current.map((agent) =>
-          agent.id === editingAgent.id ? { ...agent, ...values } : agent,
-        ),
-      );
+      await updateAgent({ id: editingAgent.id, ...values }).unwrap();
       toast.success(`${values.name} updated`);
     } else {
-      const id = `agent-${Date.now()}`;
+      const created = await createAgent(values).unwrap();
 
-      setAgents((current) => [...current, { id, ...freshStats(), ...values }]);
-      setSelectedId(id);
-      toast.success(`${values.name} created`, {
+      setSelectedId(created.id);
+      toast.success(`${created.name} created`, {
         description:
-          values.status === 'live'
+          created.status === 'live'
             ? 'The agent is live and ready to answer.'
             : 'Saved as a draft. Test it before going live.',
       });
@@ -62,79 +79,88 @@ export function AgentsView() {
     setSheetOpen(false);
   };
 
-  const duplicateAgent = (source) => {
-    const id = `agent-${Date.now()}`;
-    const name = `${source.name} (copy)`;
+  const handleDuplicate = async (source) => {
+    try {
+      const copy = await duplicateAgent(source.id).unwrap();
 
-    setAgents((current) => {
-      const index = current.findIndex((agent) => agent.id === source.id);
-      const copy = {
-        ...source,
-        ...freshStats(),
-        id,
-        name,
-        status: 'draft',
-      };
-
-      return [
-        ...current.slice(0, index + 1),
-        copy,
-        ...current.slice(index + 1),
-      ];
-    });
-    setSelectedId(id);
-    toast.success(`Duplicated as “${name}”`);
+      setSelectedId(copy.id);
+      toast.success(`Duplicated as “${copy.name}”`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
-  const toggleLive = (target) => {
-    const nextStatus = target.status === 'live' ? 'paused' : 'live';
+  const toggleLive = async (target) => {
+    const status = target.status === 'live' ? 'paused' : 'live';
 
-    setAgents((current) =>
-      current.map((agent) =>
-        agent.id === target.id ? { ...agent, status: nextStatus } : agent,
-      ),
-    );
-    toast.success(
-      nextStatus === 'live'
-        ? `${target.name} is live`
-        : `${target.name} paused`,
-    );
+    try {
+      await updateAgentStatus({ id: target.id, status }).unwrap();
+      toast.success(
+        status === 'live' ? `${target.name} is live` : `${target.name} paused`,
+      );
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
-  const deleteAgent = (target) => {
-    const remaining = agents.filter((agent) => agent.id !== target.id);
-
-    setAgents(remaining);
-    if (selected?.id === target.id) setSelectedId(remaining[0]?.id ?? null);
-    toast.success(`${target.name} deleted`);
+  const handleDelete = async (target) => {
+    try {
+      await deleteAgent(target.id).unwrap();
+      if (selected?.id === target.id) setSelectedId(null);
+      toast.success(`${target.name} deleted`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return (
     <>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <AgentList
-            agents={agents}
-            selectedId={selected?.id}
-            onSelect={setSelectedId}
-            onCreate={openCreate}
-            onEdit={openEdit}
-            onDuplicate={duplicateAgent}
-            onToggleLive={toggleLive}
-            onDelete={deleteAgent}
-          />
+          {agentsQuery.isLoading ? (
+            <LoadingAgents />
+          ) : agentsQuery.isError ? (
+            <Panel title="Your agents">
+              <FormAlert>{getErrorMessage(agentsQuery.error)}</FormAlert>
+            </Panel>
+          ) : (
+            <AgentList
+              agents={agents}
+              voices={voices}
+              selectedId={selected?.id}
+              onSelect={setSelectedId}
+              onCreate={openCreate}
+              onEdit={openEdit}
+              onDuplicate={handleDuplicate}
+              onToggleLive={toggleLive}
+              onDelete={handleDelete}
+              canCreate={voices.length > 0}
+            />
+          )}
           {selected ? (
             <>
               <AgentTestChat agent={selected} />
-              <AgentAnalytics agent={selected} />
+              <AgentAnalytics
+                agent={selected}
+                days={days}
+                onDaysChange={setDays}
+              />
             </>
           ) : null}
         </div>
-        {selected ? <AgentStats agent={selected} onEdit={openEdit} /> : null}
+        {selected ? (
+          <AgentStats
+            agent={selected}
+            options={options}
+            days={days}
+            onEdit={openEdit}
+          />
+        ) : null}
       </div>
       <AgentFormSheet
         open={sheetOpen}
         agent={editingAgent}
+        voices={voices}
         onOpenChange={setSheetOpen}
         onSave={saveAgent}
       />
